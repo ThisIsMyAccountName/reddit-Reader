@@ -52,7 +52,10 @@
 
         {% if post.is_video and post.video_url %}
         <div class="post-media video-container">
-            <video class="post-video" src="{{ post.video_url }}" autoplay loop playsinline></video>
+            <video class="post-video" src="{{ post.video_url }}" loop playsinline></video>
+            {% if post.audio_url %}
+            <audio class="video-audio" src="{{ post.audio_url }}" style="display:none;"></audio>
+            {% endif %}
             <button class="media-download-btn" data-url="{{ post.video_url }}" data-type="video" title="Download" aria-label="Download">
                 ⤓
             </button>
@@ -62,8 +65,8 @@
                     <div class="video-progress"></div>
                 </div>
                 <div class="video-volume-container">
-                    <button class="video-btn video-mute" aria-label="Mute">🔇</button>
-                    <input type="range" class="video-volume-slider" min="0" max="100" value="0">
+                    <button class="video-btn video-mute" aria-label="Mute">�</button>
+                    <input type="range" class="video-volume-slider" min="0" max="100" value="30">
                 </div>
                 <button class="video-btn video-speed" aria-label="Playback speed">1x</button>
                 <button class="video-btn video-fullscreen" aria-label="Fullscreen">⛶</button>

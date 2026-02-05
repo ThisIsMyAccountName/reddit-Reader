@@ -290,6 +290,7 @@
             // Video controls
             document.querySelectorAll('.video-container').forEach(container => {
                 const video = container.querySelector('.post-video');
+                const audio = container.querySelector('.video-audio');
                 const playPauseBtn = container.querySelector('.video-play-pause');
                 const timeline = container.querySelector('.video-timeline');
                 const progress = container.querySelector('.video-progress');
@@ -302,30 +303,64 @@
                 let currentSpeedIndex = 2; // Start at 1x
 
                 // Initialize video
-                video.volume = 0;
-                video.muted = true;
+                video.muted = false;
+                video.volume = 0.3;
+                
+                // Initialize audio if it exists
+                if (audio) {
+                    audio.volume = 0.3;
+                }
 
                 // Play/Pause
                 playPauseBtn.addEventListener('click', () => {
                     if (video.paused) {
+                        // Pause all other videos
+                        document.querySelectorAll('.post-video').forEach(v => {
+                            if (v !== video) {
+                                v.pause();
+                                const vAudio = v.closest('.video-container').querySelector('.video-audio');
+                                if (vAudio) vAudio.pause();
+                                v.closest('.video-container').querySelector('.video-play-pause').textContent = '▶';
+                            }
+                        });
                         video.play();
+                        if (audio) audio.play();
                         playPauseBtn.textContent = '⏸';
                     } else {
                         video.pause();
+                        if (audio) audio.pause();
                         playPauseBtn.textContent = '▶';
                     }
                 });
 
                 // Video click - toggle audio on/off
                 video.addEventListener('click', () => {
+                    // Pause all other videos
+                    document.querySelectorAll('.post-video').forEach(v => {
+                        if (v !== video) {
+                            v.pause();
+                            const vAudio = v.closest('.video-container').querySelector('.video-audio');
+                            if (vAudio) vAudio.pause();
+                            v.closest('.video-container').querySelector('.video-play-pause').textContent = '▶';
+                        }
+                    });
+                    // Play this video if paused
+                    if (video.paused) {
+                        video.play();
+                        if (audio) audio.play();
+                        playPauseBtn.textContent = '⏸';
+                    }
+                    // Toggle mute
                     if (video.muted || video.volume === 0) {
                         video.muted = false;
-                        video.volume = 0.05;
-                        volumeSlider.value = 5;
+                        video.volume = 0.3;
+                        if (audio) audio.volume = 0.3;
+                        volumeSlider.value = 30;
                         muteBtn.textContent = '🔉';
                     } else {
                         video.muted = true;
                         video.volume = 0;
+                        if (audio) audio.volume = 0;
                         volumeSlider.value = 0;
                         muteBtn.textContent = '🔇';
                     }
@@ -347,15 +382,31 @@
                 // Mute button
                 muteBtn.addEventListener('click', () => {
                     video.muted = !video.muted;
-                    muteBtn.textContent = video.muted ? '🔇' : (video.volume > 0.5 ? '🔊' : '🔉');
+                    if (audio) audio.muted = video.muted;
+                    if (video.muted) {
+                        muteBtn.textContent = '🔇';
+                    } else {
+                        muteBtn.textContent = video.volume > 0.5 ? '🔊' : '🔉';
+                        if (video.volume === 0) {
+                            video.volume = 0.3;
+                            if (audio) audio.volume = 0.3;
+                            volumeSlider.value = 30;
+                        }
+                    }
                 });
 
                 // Volume slider
                 volumeSlider.addEventListener('input', (e) => {
-                    const volume = e.target.value / 100;
+                    const volume = parseInt(e.target.value) / 100;
                     video.volume = volume;
-                    video.muted = volume === 0;
-                    muteBtn.textContent = volume === 0 ? '🔇' : (volume > 0.5 ? '🔊' : '🔉');
+                    if (audio) audio.volume = volume;
+                    video.muted = false;
+                    if (audio) audio.muted = false;
+                    if (volume === 0) {
+                        muteBtn.textContent = '🔇';
+                    } else {
+                        muteBtn.textContent = volume > 0.5 ? '🔊' : '🔉';
+                    }
                 });
 
                 // Playback speed
@@ -363,6 +414,7 @@
                     currentSpeedIndex = (currentSpeedIndex + 1) % speeds.length;
                     const newSpeed = speeds[currentSpeedIndex];
                     video.playbackRate = newSpeed;
+                    if (audio) audio.playbackRate = newSpeed;
                     speedBtn.textContent = newSpeed === 1 ? '1x' : newSpeed.toFixed(2) + 'x';
                 });
 
