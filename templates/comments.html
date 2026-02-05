@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}{{ post.title }} - Reddit Reader{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('subreddit', name=post.subreddit) }}" class="btn">
+        ← Back to r/{{ post.subreddit }}
+    </a>
+</div>
+
+<article class="post-detail">
+    <h1 style="font-size: 24px; margin-bottom: 15px;">{{ post.title }}</h1>
+    
+    <div class="post-meta">
+        <span class="post-meta-item">
+            👤 <span class="post-author">u/{{ post.author }}</span>
+        </span>
+        <span class="post-meta-item">
+            📍 r/{{ post.subreddit }}
+        </span>
+        <span class="post-meta-item">
+            ⬆️ {{ "{:,}".format(post.score) }}
+        </span>
+        <span class="post-meta-item">
+            💬 {{ "{:,}".format(post.num_comments) }} comments
+        </span>
+        <span class="post-meta-item">
+            🕐 {{ reader.format_timestamp(post.created_utc) }}
+        </span>
+    </div>
+    
+    {% if post.is_self and post.selftext %}
+    <div class="post-selftext" style="border-top: 1px solid var(--border); margin-top: 15px; padding-top: 15px;">
+        {{ post.selftext }}
+    </div>
+    {% endif %}
+
+    {% if post.is_video and post.video_url %}
+    <div class="post-media video-container" style="margin-top: 15px;">
+        <video class="post-video" src="{{ post.video_url }}" autoplay loop playsinline></video>
+        <button class="media-download-btn" data-url="{{ post.video_url }}" data-type="video" title="Download" aria-label="Download">
+            ⤓
+        </button>
+        <div class="video-controls">
+            <button class="video-btn video-play-pause" aria-label="Play/Pause">⏸</button>
+            <div class="video-timeline">
+                <div class="video-progress"></div>
+            </div>
+            <div class="video-volume-container">
+                <button class="video-btn video-mute" aria-label="Mute">🔇</button>
+                <input type="range" class="video-volume-slider" min="0" max="100" value="0">
+            </div>
+            <button class="video-btn video-fullscreen" aria-label="Fullscreen">⛶</button>
+        </div>
+    </div>
+    {% elif post.gallery_urls and post.gallery_urls|length > 0 %}
+    <div class="post-media gallery" style="margin-top: 15px;">
+        <div class="gallery-scroll">
+            {% for url in post.gallery_urls %}
+            <div class="gallery-item">
+                <img class="gallery-image" src="{{ url }}" alt="Gallery image" loading="lazy">
+                <button class="media-download-btn" data-url="{{ url }}" data-type="image" title="Download" aria-label="Download">
+                    ⤓
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% if post.gallery_urls|length > 1 %}
+        <button class="gallery-nav gallery-nav-left" aria-label="Previous image">‹</button>
+        <button class="gallery-nav gallery-nav-right" aria-label="Next image">›</button>
+        {% endif %}
+    </div>
+    {% elif post.image_url %}
+    <div class="post-media" style="margin-top: 15px;">
+        <img class="post-image" src="{{ post.image_url }}" alt="Post image">
+        <button class="media-download-btn" data-url="{{ post.image_url }}" data-type="image" title="Download" aria-label="Download">
+            ⤓
+        </button>
+    </div>
+    {% endif %}
+    
+    <div class="post-actions">
+        {% if not post.is_self %}
+        <a href="{{ post.url }}" target="_blank" class="btn btn-primary">
+            🔗 View Link
+        </a>
+        {% endif %}
+        <a href="{{ post.permalink }}" target="_blank" class="btn">
+            🔗 View on Reddit
+        </a>
+    </div>
+</article>
+
+<h2 style="margin-bottom: 15px; font-size: 20px;">
+    💬 Comments ({{ comments|length }})
+</h2>
+
+{% if comments %}
+    {% for comment in comments %}
+    <div class="comment" data-depth="{{ comment.depth }}">
+        <div class="comment-expand">
+            {% if comment.replies %}
+            <button class="comment-expand-btn">+</button>
+            {% endif %}
+        </div>
+        <div class="comment-content">
+            <div class="comment-meta-right">
+                <span class="comment-author">u/{{ comment.author }}</span>
+                <span class="comment-score">⬆️ {{ "{:,}".format(comment.score) }}</span>
+            </div>
+            <div class="comment-body">{{ comment.body }}</div>
+            {% if comment.replies %}
+            <div class="comment-replies" hidden>
+                {% for reply in comment.replies %}
+                    {% include 'comment_tree.html' %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+        <p>No comments yet</p>
+    </div>
+{% endif %}
+{% endblock %}

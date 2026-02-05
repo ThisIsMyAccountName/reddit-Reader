@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Reddit Reader{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <a href="{{ url_for('index') }}" class="logo">📖 Reddit Reader</a>
+            <form action="{{ url_for('search') }}" method="get" class="search-form">
+                <input type="text" 
+                       name="q" 
+                       class="search-input" 
+                       placeholder="Search subreddit... (e.g., python, gaming, news)"
+                       autocomplete="off">
+            </form>
+        </div>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        document.addEventListener('click', async (event) => {
+            const toggle = event.target.closest('.comment-toggle');
+            if (!toggle) return;
+
+            const container = toggle.closest('.post-top-comments');
+            const list = container.querySelector('.comment-list');
+            const subreddit = toggle.dataset.subreddit;
+            const postId = toggle.dataset.postId;
+            const limit = toggle.dataset.limit || 3;
+
+            const isLoaded = list.dataset.loaded === 'true';
+            const isHidden = list.hasAttribute('hidden');
+
+            if (!isLoaded) {
+                toggle.textContent = 'Loading...';
+                try {
+                    const response = await fetch(`/api/comments?subreddit=${encodeURIComponent(subreddit)}&post_id=${encodeURIComponent(postId)}&limit=${encodeURIComponent(limit)}`);
+                    const data = await response.json();
+                    list.innerHTML = '';
+
+                    if (data.comments && data.comments.length) {
+                        const showAuthor = list.dataset.showAuthor !== 'false';
+                        data.comments.forEach((comment) => {
+                            list.appendChild(createCommentElement(comment, 0, showAuthor));
+                        });
+                    } else {
+                        const empty = document.createElement('div');
+                        empty.className = 'text-secondary';
+                        empty.style.fontSize = '13px';
+                        empty.textContent = 'No comments found.';
+                        list.appendChild(empty);
+                    }
+
+                    list.dataset.loaded = 'true';
+                    list.removeAttribute('hidden');
+                    toggle.textContent = 'Hide comments';
+                } catch (err) {
+                    toggle.textContent = 'Load comments';
+                }
+            } else {
+                if (isHidden) {
+                    list.removeAttribute('hidden');
+                    toggle.textContent = 'Hide comments';
+                } else {
+                    list.setAttribute('hidden', '');
+                    toggle.textContent = 'Load comments';
+                }
+            }
+        });
+
+        // Media download button (left click)
+        document.addEventListener('click', (event) => {
+            const btn = event.target.closest('.media-download-btn');
+            if (btn) {
+                const url = btn.dataset.url;
+                const filename = getFilenameFromUrl(url);
+                triggerDownload(url, filename);
+                return;
+            }
+
+            // Close menu on any other click
+            closeDownloadMenu();
+        });
+
+        // Media download button (right click opens menu)
+        document.addEventListener('contextmenu', (event) => {
+            const btn = event.target.closest('.media-download-btn');
+            if (!btn) return;
+
+            event.preventDefault();
+            openDownloadMenu(event.clientX, event.clientY, btn.dataset.url);
+        });
+
+        function openDownloadMenu(x, y, url) {
+            closeDownloadMenu();
+
+            const menu = document.createElement('div');
+            menu.className = 'media-download-menu';
+            menu.style.left = `${x}px`;
+            menu.style.top = `${y}px`;
+
+            const downloadBtn = document.createElement('button');
+            downloadBtn.textContent = 'Download';
+            downloadBtn.addEventListener('click', () => {
+                const filename = getFilenameFromUrl(url);
+                triggerDownload(url, filename);
+                closeDownloadMenu();
+            });
+
+            const renameBtn = document.createElement('button');
+            renameBtn.textContent = 'Download as...';
+            renameBtn.addEventListener('click', async () => {
+                const defaultName = getFilenameFromUrl(url);
+                const customName = prompt('Save file as:', defaultName);
+                if (customName) {
+                    await triggerDownload(url, customName);
+                }
+                closeDownloadMenu();
+            });
+
+            menu.appendChild(downloadBtn);
+            menu.appendChild(renameBtn);
+            document.body.appendChild(menu);
+        }
+
+        function closeDownloadMenu() {
+            document.querySelectorAll('.media-download-menu').forEach(menu => menu.remove());
+        }
+
+        function getFilenameFromUrl(url) {
+            try {
+                const parsed = new URL(url);
+                const pathname = parsed.pathname.split('/').pop() || 'media';
+                return decodeURIComponent(pathname.split('?')[0]);
+            } catch {
+                return 'media';
+            }
+        }
+
+        async function triggerDownload(url, filename) {
+            try {
+                const response = await fetch(url, { mode: 'cors' });
+                const blob = await response.blob();
+                const objectUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = objectUrl;
+                link.download = filename || 'media';
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(objectUrl);
+            } catch {
+                window.open(url, '_blank');
+            }
+        }
+
+        function createCommentElement(comment, depth = 0, showAuthor = true) {
+            const item = document.createElement('div');
+            item.className = depth > 0 ? 'comment compact comment-reply' : 'comment compact';
+            item.dataset.depth = depth;
+
+            // Expand button container
+            const expandDiv = document.createElement('div');
+            expandDiv.className = 'comment-expand';
+            
+            if (comment.replies && comment.replies.length > 0) {
+                const expandBtn = document.createElement('button');
+                expandBtn.className = 'comment-expand-btn';
+                expandBtn.textContent = '+';
+                expandDiv.appendChild(expandBtn);
+            }
+            
+            item.appendChild(expandDiv);
+
+            // Content container
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'comment-content';
+
+            const score = document.createElement('span');
+            score.className = 'comment-score';
+            score.textContent = `⬆️ ${comment.score.toLocaleString()}`;
+
+            const meta = document.createElement('div');
+            meta.className = 'comment-meta-right';
+            if (showAuthor) {
+                const author = document.createElement('span');
+                author.className = 'comment-author';
+                author.textContent = `u/${comment.author}`;
+                meta.appendChild(author);
+            }
+            meta.appendChild(score);
+
+            const body = document.createElement('div');
+            body.className = 'comment-body';
+            body.textContent = comment.body;
+
+            contentDiv.appendChild(meta);
+            contentDiv.appendChild(body);
+
+            // Add replies if present
+            if (comment.replies && comment.replies.length > 0) {
+                const repliesDiv = document.createElement('div');
+                repliesDiv.className = 'comment-replies';
+                repliesDiv.setAttribute('hidden', '');
+                
+                comment.replies.forEach(reply => {
+                    repliesDiv.appendChild(createCommentElement(reply, depth + 1, showAuthor));
+                });
+                
+                contentDiv.appendChild(repliesDiv);
+            }
+
+            item.appendChild(contentDiv);
+            return item;
+        }
+
+        // Gallery navigation
+        document.addEventListener('click', (event) => {
+            const navLeft = event.target.closest('.gallery-nav-left');
+            const navRight = event.target.closest('.gallery-nav-right');
+            
+            if (navLeft) {
+                const scroll = navLeft.parentElement.querySelector('.gallery-scroll');
+                const images = Array.from(scroll.children);
+                const scrollLeft = scroll.scrollLeft;
+                
+                let targetImage = images[0];
+                for (let i = images.length - 1; i >= 0; i--) {
+                    if (images[i].offsetLeft < scrollLeft - 10) {
+                        targetImage = images[i];
+                        break;
+                    }
+                }
+                
+                targetImage.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+                return;
+            }
+            
+            if (navRight) {
+                const scroll = navRight.parentElement.querySelector('.gallery-scroll');
+                const images = Array.from(scroll.children);
+                const scrollLeft = scroll.scrollLeft;
+                
+                let targetImage = images[images.length - 1];
+                for (let i = 0; i < images.length; i++) {
+                    if (images[i].offsetLeft > scrollLeft + 10) {
+                        targetImage = images[i];
+                        break;
+                    }
+                }
+                
+                targetImage.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+                return;
+            }
+        });
+
+        // Video player controls
+        document.addEventListener('DOMContentLoaded', () => {
+            // Comment expand/collapse (click anywhere on left expand area)
+            document.addEventListener('click', (event) => {
+                const expandArea = event.target.closest('.comment-expand');
+                if (!expandArea) return;
+
+                const comment = expandArea.closest('.comment');
+                const repliesContainer = comment.querySelector(':scope > .comment-content > .comment-replies');
+                const expandBtn = expandArea.querySelector('.comment-expand-btn');
+
+                if (!repliesContainer || !expandBtn) return;
+
+                const isHidden = repliesContainer.hasAttribute('hidden');
+                
+                if (isHidden) {
+                    repliesContainer.removeAttribute('hidden');
+                    expandBtn.textContent = '−';
+                    expandBtn.classList.add('expanded');
+                } else {
+                    repliesContainer.setAttribute('hidden', '');
+                    expandBtn.textContent = '+';
+                    expandBtn.classList.remove('expanded');
+                }
+            });
+
+            // Video controls
+            document.querySelectorAll('.video-container').forEach(container => {
+                const video = container.querySelector('.post-video');
+                const playPauseBtn = container.querySelector('.video-play-pause');
+                const timeline = container.querySelector('.video-timeline');
+                const progress = container.querySelector('.video-progress');
+                const muteBtn = container.querySelector('.video-mute');
+                const volumeSlider = container.querySelector('.video-volume-slider');
+                const speedBtn = container.querySelector('.video-speed');
+                const fullscreenBtn = container.querySelector('.video-fullscreen');
+                
+                const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
+                let currentSpeedIndex = 2; // Start at 1x
+
+                // Initialize video
+                video.volume = 0;
+                video.muted = true;
+
+                // Play/Pause
+                playPauseBtn.addEventListener('click', () => {
+                    if (video.paused) {
+                        video.play();
+                        playPauseBtn.textContent = '⏸';
+                    } else {
+                        video.pause();
+                        playPauseBtn.textContent = '▶';
+                    }
+                });
+
+                // Video click - toggle audio on/off
+                video.addEventListener('click', () => {
+                    if (video.muted || video.volume === 0) {
+                        video.muted = false;
+                        video.volume = 0.05;
+                        volumeSlider.value = 5;
+                        muteBtn.textContent = '🔉';
+                    } else {
+                        video.muted = true;
+                        video.volume = 0;
+                        volumeSlider.value = 0;
+                        muteBtn.textContent = '🔇';
+                    }
+                });
+
+                // Timeline
+                timeline.addEventListener('click', (e) => {
+                    const rect = timeline.getBoundingClientRect();
+                    const percent = (e.clientX - rect.left) / rect.width;
+                    video.currentTime = percent * video.duration;
+                });
+
+                // Update progress
+                video.addEventListener('timeupdate', () => {
+                    const percent = (video.currentTime / video.duration) * 100;
+                    progress.style.width = percent + '%';
+                });
+
+                // Mute button
+                muteBtn.addEventListener('click', () => {
+                    video.muted = !video.muted;
+                    muteBtn.textContent = video.muted ? '🔇' : (video.volume > 0.5 ? '🔊' : '🔉');
+                });
+
+                // Volume slider
+                volumeSlider.addEventListener('input', (e) => {
+                    const volume = e.target.value / 100;
+                    video.volume = volume;
+                    video.muted = volume === 0;
+                    muteBtn.textContent = volume === 0 ? '🔇' : (volume > 0.5 ? '🔊' : '🔉');
+                });
+
+                // Playback speed
+                speedBtn.addEventListener('click', () => {
+                    currentSpeedIndex = (currentSpeedIndex + 1) % speeds.length;
+                    const newSpeed = speeds[currentSpeedIndex];
+                    video.playbackRate = newSpeed;
+                    speedBtn.textContent = newSpeed === 1 ? '1x' : newSpeed.toFixed(2) + 'x';
+                });
+
+                // Fullscreen
+                fullscreenBtn.addEventListener('click', () => {
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    } else {
+                        container.requestFullscreen();
+                    }
+                });
+
+                // CTRL+Scroll for volume
+                container.addEventListener('wheel', (e) => {
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        const delta = e.deltaY > 0 ? -5 : 5;
+                        const newVolume = Math.max(0, Math.min(100, parseInt(volumeSlider.value) + delta));
+                        volumeSlider.value = newVolume;
+                        video.volume = newVolume / 100;
+                        video.muted = newVolume === 0;
+                        muteBtn.textContent = newVolume === 0 ? '🔇' : (newVolume > 50 ? '🔊' : '🔉');
+                    }
+                }, { passive: false });
+            });
+        });
+    </script>
+</body>
+</html>
