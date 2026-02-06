@@ -47,15 +47,28 @@
        class="sort-link {% if sort == 'hot' %}active{% endif %}">🔥 Hot</a>
     <a href="{{ url_for('subreddit', name=subreddit, sort='new') }}" 
        class="sort-link {% if sort == 'new' %}active{% endif %}">🆕 New</a>
-    <a href="{{ url_for('subreddit', name=subreddit, sort='top') }}" 
+    <a href="{{ url_for('subreddit', name=subreddit, sort='top', t=time_filter or 'day') }}" 
        class="sort-link {% if sort == 'top' %}active{% endif %}">⭐ Top</a>
     <a href="{{ url_for('subreddit', name=subreddit, sort='rising') }}" 
        class="sort-link {% if sort == 'rising' %}active{% endif %}">📈 Rising</a>
+    
+    {% if sort == 'top' %}
+    <span class="time-filter-divider">|</span>
+    <select id="time-filter" class="time-filter-select" onchange="window.location.href=this.value">
+        <option value="{{ url_for('subreddit', name=subreddit, sort='top', t='hour') }}" {% if time_filter == 'hour' %}selected{% endif %}>Past Hour</option>
+        <option value="{{ url_for('subreddit', name=subreddit, sort='top', t='day') }}" {% if time_filter == 'day' %}selected{% endif %}>Today</option>
+        <option value="{{ url_for('subreddit', name=subreddit, sort='top', t='week') }}" {% if time_filter == 'week' %}selected{% endif %}>This Week</option>
+        <option value="{{ url_for('subreddit', name=subreddit, sort='top', t='month') }}" {% if time_filter == 'month' %}selected{% endif %}>This Month</option>
+        <option value="{{ url_for('subreddit', name=subreddit, sort='top', t='year') }}" {% if time_filter == 'year' %}selected{% endif %}>This Year</option>
+        <option value="{{ url_for('subreddit', name=subreddit, sort='top', t='all') }}" {% if time_filter == 'all' %}selected{% endif %}>All Time</option>
+    </select>
+    {% endif %}
 </div>
 
 <div id="posts-container" 
      data-subreddit="{{ subreddit }}" 
      data-sort="{{ sort }}" 
+     data-time-filter="{{ time_filter or 'day' }}"
      data-after="{{ after or '' }}"
      data-comments-limit="{{ comments_limit }}">
 {% if posts %}
@@ -78,6 +91,11 @@
                 <a href="{{ post.url }}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>
                 {% endif %}
                 <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
+                {% if current_user.is_authenticated and post.subreddit != subreddit %}
+                <form method="post" action="{{ url_for('ban_subreddit', subreddit=post.subreddit) }}" class="inline-form" onsubmit="return confirm('Ban r/{{ post.subreddit }}? Posts from this subreddit will be hidden.')">
+                    <button type="submit" class="meta-action-btn ban-btn" title="Ban r/{{ post.subreddit }}">🚫</button>
+                </form>
+                {% endif %}
             </span>
         </div>
         
@@ -188,6 +206,7 @@
     
     const subreddit = container.dataset.subreddit;
     const sort = container.dataset.sort;
+    const timeFilter = container.dataset.timeFilter || 'day';
     const commentsLimit = container.dataset.commentsLimit;
     let after = container.dataset.after;
     let loading = false;
@@ -298,7 +317,7 @@
         loadingIndicator.style.display = 'block';
         
         try {
-            const response = await fetch(`/api/posts?subreddit=${encodeURIComponent(subreddit)}&sort=${encodeURIComponent(sort)}&after=${encodeURIComponent(after)}`);
+            const response = await fetch(`/api/posts?subreddit=${encodeURIComponent(subreddit)}&sort=${encodeURIComponent(sort)}&t=${encodeURIComponent(timeFilter)}&after=${encodeURIComponent(after)}`);
             const data = await response.json();
             
             if (data.posts && data.posts.length > 0) {

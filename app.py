@@ -148,7 +148,7 @@ class RedditReader:
         
         return ''
     
-    def fetch_subreddit(self, subreddit: str = "all", sort: str = "hot", limit: int = 25, after: str = None) -> Optional[Dict]:
+    def fetch_subreddit(self, subreddit: str = "all", sort: str = "hot", limit: int = 25, after: str = None, t: str = None) -> Optional[Dict]:
         """
         Fetch posts from a subreddit
         
@@ -157,6 +157,7 @@ class RedditReader:
             sort: Sort method - "hot", "new", "top", "rising" (default: "hot")
             limit: Number of posts to fetch (default: 25, max: 100)
             after: Pagination token for next page (default: None)
+            t: Time filter for "top" sort - "hour", "day", "week", "month", "year", "all" (default: None)
             
         Returns:
             JSON response from Reddit or None if failed
@@ -165,6 +166,8 @@ class RedditReader:
         params = {'limit': min(limit, 100)}
         if after:
             params['after'] = after
+        if t and sort == 'top':
+            params['t'] = t
         
         return self._get_json(url, params=params)
     
@@ -421,9 +424,15 @@ def get_db():
 
 
 @app.context_processor
-def inject_pinned_subs():
-    """Inject pinned subreddits and page type into all templates."""
-    context = {'pinned_subs': [], 'is_subreddit_page': False}
+def inject_user_settings():
+    """Inject user settings into all templates."""
+    context = {
+        'pinned_subs': [],
+        'banned_subs': [],
+        'is_subreddit_page': False,
+        'default_volume': 5,
+        'default_speed': 1.0
+    }
     
     # Check if current page is a subreddit page
     if request.endpoint in ('subreddit', 'comments'):
@@ -431,12 +440,18 @@ def inject_pinned_subs():
     
     if current_user.is_authenticated:
         conn = get_db()
-        row = conn.execute('SELECT pinned_subs FROM user_settings WHERE user_id = ?', (current_user.id,)).fetchone()
+        row = conn.execute('SELECT pinned_subs, banned_subs, default_volume, default_speed FROM user_settings WHERE user_id = ?', (current_user.id,)).fetchone()
         conn.close()
-        if row and row['pinned_subs']:
-            context['pinned_subs'] = [s.strip() for s in row['pinned_subs'].split(',') if s.strip()]
+        if row:
+            if row['pinned_subs']:
+                context['pinned_subs'] = [s.strip() for s in row['pinned_subs'].split(',') if s.strip()]
+            if row['banned_subs']:
+                context['banned_subs'] = [s.strip() for s in row['banned_subs'].split(',') if s.strip()]
+            if 'default_volume' in row.keys():
+                context['default_volume'] = row['default_volume'] or 5
+            if 'default_speed' in row.keys():
+                context['default_speed'] = row['default_speed'] or 1.0
     return context
-
 
 def init_db():
     """Initialize the database with users and settings tables."""
@@ -453,9 +468,25 @@ def init_db():
         CREATE TABLE IF NOT EXISTS user_settings (
             user_id INTEGER PRIMARY KEY,
             pinned_subs TEXT DEFAULT '',
+            banned_subs TEXT DEFAULT '',
+            default_volume INTEGER DEFAULT 5,
+            default_speed REAL DEFAULT 1.0,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
+    # Add new columns if they don't exist (for existing databases)
+    try:
+        conn.execute('ALTER TABLE user_settings ADD COLUMN default_volume INTEGER DEFAULT 5')
+    except:
+        pass
+    try:
+        conn.execute('ALTER TABLE user_settings ADD COLUMN default_speed REAL DEFAULT 1.0')
+    except:
+        pass
+    try:
+        conn.execute('ALTER TABLE user_settings ADD COLUMN banned_subs TEXT DEFAULT \'\'')
+    except:
+        pass
     conn.commit()
     conn.close()
 
@@ -641,10 +672,17 @@ def settings():
     conn = get_db()
     
     # Get current settings
-    row = conn.execute('SELECT pinned_subs FROM user_settings WHERE user_id = ?', (current_user.id,)).fetchone()
+    row = conn.execute('SELECT pinned_subs, banned_subs, default_volume, default_speed FROM user_settings WHERE user_id = ?', (current_user.id,)).fetchone()
     current_subs = []
+    banned_subs = []
     if row and row['pinned_subs']:
         current_subs = [s.strip() for s in row['pinned_subs'].split(',') if s.strip()]
+    if row and row['banned_subs']:
+        banned_subs = [s.strip() for s in row['banned_subs'].split(',') if s.strip()]
+    
+    # Get current volume and speed settings
+    default_volume = row['default_volume'] if row and row['default_volume'] is not None else 5
+    default_speed = row['default_speed'] if row and row['default_speed'] is not None else 1.0
     
     if request.method == 'POST':
         action = request.form.get('action')
@@ -662,18 +700,31 @@ def settings():
             idx = current_subs.index(sub)
             if idx < len(current_subs) - 1:
                 current_subs[idx], current_subs[idx+1] = current_subs[idx+1], current_subs[idx]
+        elif action == 'save_playback':
+            default_volume = int(request.form.get('default_volume', 5))
+            default_speed = float(request.form.get('default_speed', 1.0))
+            # Clamp values
+            default_volume = max(0, min(100, default_volume))
+            default_speed = max(0.25, min(2.0, default_speed))
+        elif action == 'reorder':
+            new_order = request.form.get('order', '')
+            if new_order:
+                current_subs = [s.strip() for s in new_order.split(',') if s.strip()]
+        elif action == 'unban' and sub in banned_subs:
+            banned_subs.remove(sub)
         
-        pinned_subs = ','.join(current_subs)
+        pinned_subs_str = ','.join(current_subs)
+        banned_subs_str = ','.join(banned_subs)
         conn.execute('''
-            INSERT INTO user_settings (user_id, pinned_subs) VALUES (?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET pinned_subs = excluded.pinned_subs
-        ''', (current_user.id, pinned_subs))
+            INSERT INTO user_settings (user_id, pinned_subs, banned_subs, default_volume, default_speed) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET pinned_subs = excluded.pinned_subs, banned_subs = excluded.banned_subs, default_volume = excluded.default_volume, default_speed = excluded.default_speed
+        ''', (current_user.id, pinned_subs_str, banned_subs_str, default_volume, default_speed))
         conn.commit()
         conn.close()
         return redirect(url_for('settings'))
     
     conn.close()
-    return render_template('settings.html', pinned_subs=current_subs)
+    return render_template('settings.html', pinned_subs=current_subs, banned_subs=banned_subs, default_volume=default_volume, default_speed=default_speed)
 
 
 def get_user_pinned_subs(user_id):
@@ -686,6 +737,43 @@ def get_user_pinned_subs(user_id):
     return []
 
 
+def get_user_banned_subs(user_id):
+    """Get user's banned subreddits as a list."""
+    conn = get_db()
+    row = conn.execute('SELECT banned_subs FROM user_settings WHERE user_id = ?', (user_id,)).fetchone()
+    conn.close()
+    if row and row['banned_subs']:
+        return [s.strip() for s in row['banned_subs'].split(',') if s.strip()]
+    return []
+
+
+@app.route('/ban/<subreddit>', methods=['POST'])
+@login_required
+def ban_subreddit(subreddit):
+    """Ban a subreddit from appearing in feeds."""
+    subreddit = subreddit.strip().lower()
+    if not subreddit:
+        return redirect(request.referrer or url_for('index'))
+    
+    conn = get_db()
+    row = conn.execute('SELECT banned_subs FROM user_settings WHERE user_id = ?', (current_user.id,)).fetchone()
+    banned_subs = []
+    if row and row['banned_subs']:
+        banned_subs = [s.strip() for s in row['banned_subs'].split(',') if s.strip()]
+    
+    if subreddit not in banned_subs:
+        banned_subs.append(subreddit)
+        banned_subs_str = ','.join(banned_subs)
+        conn.execute('''
+            INSERT INTO user_settings (user_id, banned_subs) VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET banned_subs = excluded.banned_subs
+        ''', (current_user.id, banned_subs_str))
+        conn.commit()
+    
+    conn.close()
+    return redirect(request.referrer or url_for('index'))
+
+
 @app.route('/')
 def index():
     """Home page - redirect to r/all"""
@@ -696,16 +784,23 @@ def index():
 def subreddit(name):
     """Display posts from a subreddit"""
     sort = request.args.get('sort', config.DEFAULT_SORT)
+    t = request.args.get('t', 'day')  # Time filter for top sort
     limit = int(request.args.get('limit', config.DEFAULT_POST_LIMIT))
     
     # Fetch data
-    cache_key = (name, sort, limit)
+    cache_key = (name, sort, limit, t if sort == 'top' else None)
     data = _get_cached(subreddit_cache, "subreddit", cache_key, config.SUBREDDIT_CACHE_TTL)
     if data is None:
-        data = reader.fetch_subreddit(name, sort=sort, limit=limit)
+        data = reader.fetch_subreddit(name, sort=sort, limit=limit, t=t if sort == 'top' else None)
         if data:
             _set_cache(subreddit_cache, "subreddit", cache_key, data)
     posts = reader.parse_posts(data) if data else []
+    
+    # Filter out banned subreddits
+    if current_user.is_authenticated:
+        banned = get_user_banned_subs(current_user.id)
+        if banned:
+            posts = [p for p in posts if p['subreddit'].lower() not in banned]
     
     # Get the 'after' token for pagination
     after = None
@@ -716,6 +811,7 @@ def subreddit(name):
                          posts=posts, 
                          subreddit=name, 
                          sort=sort,
+                         time_filter=t,
                          after=after,
                          comments_limit=config.TOP_COMMENTS_PER_POST,
                          reader=reader)
@@ -805,11 +901,18 @@ def api_posts():
     """Return posts for infinite scroll."""
     subreddit = request.args.get('subreddit', 'all').strip()
     sort = request.args.get('sort', config.DEFAULT_SORT)
+    t = request.args.get('t', 'day')  # Time filter for top sort
     after = request.args.get('after', '').strip() or None
     limit = int(request.args.get('limit', config.DEFAULT_POST_LIMIT))
     
-    data = reader.fetch_subreddit(subreddit, sort=sort, limit=limit, after=after)
+    data = reader.fetch_subreddit(subreddit, sort=sort, limit=limit, after=after, t=t if sort == 'top' else None)
     posts = reader.parse_posts(data) if data else []
+    
+    # Filter out banned subreddits
+    if current_user.is_authenticated:
+        banned = get_user_banned_subs(current_user.id)
+        if banned:
+            posts = [p for p in posts if p['subreddit'].lower() not in banned]
     
     # Get the 'after' token for next page
     next_after = None

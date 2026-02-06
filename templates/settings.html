@@ -8,7 +8,7 @@
     
     <div class="settings-section">
         <h2>📌 Pinned Subreddits</h2>
-        <p class="form-help">Your favorite subreddits appear in the header for quick access (first 5 shown).</p>
+        <p class="form-help">Drag to reorder. First 5 shown in navigation.</p>
         
         <form method="post" class="add-sub-form">
             <input type="hidden" name="action" value="add">
@@ -21,29 +21,14 @@
         </form>
         
         {% if pinned_subs %}
-        <div class="pinned-list">
+        <form method="post" id="reorder-form">
+            <input type="hidden" name="action" value="reorder">
+            <input type="hidden" name="order" id="pinned-order" value="{{ pinned_subs | join(',') }}">
+        </form>
+        <div class="pinned-list" id="pinned-list">
             {% for sub in pinned_subs %}
-            <div class="pinned-item" data-sub="{{ sub }}">
-                <div class="pinned-item-reorder">
-                    {% if not loop.first %}
-                    <form method="post" class="reorder-form">
-                        <input type="hidden" name="action" value="move_up">
-                        <input type="hidden" name="sub" value="{{ sub }}">
-                        <button type="submit" class="btn btn-small btn-reorder" title="Move up">↑</button>
-                    </form>
-                    {% else %}
-                    <span class="btn btn-small btn-reorder btn-disabled">↑</span>
-                    {% endif %}
-                    {% if not loop.last %}
-                    <form method="post" class="reorder-form">
-                        <input type="hidden" name="action" value="move_down">
-                        <input type="hidden" name="sub" value="{{ sub }}">
-                        <button type="submit" class="btn btn-small btn-reorder" title="Move down">↓</button>
-                    </form>
-                    {% else %}
-                    <span class="btn btn-small btn-reorder btn-disabled">↓</span>
-                    {% endif %}
-                </div>
+            <div class="pinned-item" data-sub="{{ sub }}" draggable="true">
+                <span class="drag-handle">⋮⋮</span>
                 <a href="{{ url_for('subreddit', name=sub) }}" class="pinned-item-name">r/{{ sub }}</a>
                 {% if loop.index <= 5 %}<span class="pinned-badge">visible</span>{% endif %}
                 <form method="post" class="pinned-item-remove">
@@ -60,6 +45,61 @@
     </div>
     
     <div class="settings-section">
+        <h2>🚫 Banned Subreddits</h2>
+        <p class="form-help">Posts from these subreddits are hidden from feeds like r/all.</p>
+        
+        {% if banned_subs %}
+        <div class="banned-list">
+            {% for sub in banned_subs %}
+            <div class="banned-item">
+                <span class="banned-item-name">r/{{ sub }}</span>
+                <form method="post" class="banned-item-remove">
+                    <input type="hidden" name="action" value="unban">
+                    <input type="hidden" name="sub" value="{{ sub }}">
+                    <button type="submit" class="btn btn-small btn-success" title="Unban">Unban</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-secondary" style="margin-top: 15px;">No banned subreddits. Use the 🚫 button on posts to ban.</p>
+        {% endif %}
+    </div>
+    
+    <div class="settings-section">
+        <h2>🎬 Playback Settings</h2>
+        <p class="form-help">Default volume and speed for video playback.</p>
+        
+        <form method="post" class="playback-form">
+            <input type="hidden" name="action" value="save_playback">
+            
+            <div class="form-row">
+                <label for="default_volume">Default Volume</label>
+                <div class="range-input-group">
+                    <input type="range" id="default_volume" name="default_volume" min="0" max="100" value="{{ default_volume or 5 }}" class="range-input">
+                    <span class="range-value" id="volume-value">{{ default_volume or 5 }}%</span>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <label for="default_speed">Default Speed</label>
+                <select id="default_speed" name="default_speed" class="form-select">
+                    <option value="0.25" {% if default_speed|float == 0.25 %}selected{% endif %}>0.25x</option>
+                    <option value="0.5" {% if default_speed|float == 0.5 %}selected{% endif %}>0.5x</option>
+                    <option value="0.75" {% if default_speed|float == 0.75 %}selected{% endif %}>0.75x</option>
+                    <option value="1.0" {% if default_speed|float == 1.0 or not default_speed %}selected{% endif %}>1x (Normal)</option>
+                    <option value="1.25" {% if default_speed|float == 1.25 %}selected{% endif %}>1.25x</option>
+                    <option value="1.5" {% if default_speed|float == 1.5 %}selected{% endif %}>1.5x</option>
+                    <option value="1.75" {% if default_speed|float == 1.75 %}selected{% endif %}>1.75x</option>
+                    <option value="2.0" {% if default_speed|float == 2.0 %}selected{% endif %}>2x</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Save Playback Settings</button>
+        </form>
+    </div>
+    
+    <div class="settings-section">
         <h2>Quick Add</h2>
         <p class="form-help">Click to add popular subreddits:</p>
         <div class="quick-add-subs">
@@ -73,4 +113,94 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Scroll to top on page load (after reorder redirect)
+    window.scrollTo(0, 0);
+    
+    // Volume slider preview
+    const volumeSlider = document.getElementById('default_volume');
+    const volumeValue = document.getElementById('volume-value');
+    if (volumeSlider && volumeValue) {
+        volumeSlider.addEventListener('input', () => {
+            volumeValue.textContent = volumeSlider.value + '%';
+        });
+    }
+    
+    // Drag and drop reordering
+    const pinnedList = document.getElementById('pinned-list');
+    const orderInput = document.getElementById('pinned-order');
+    const reorderForm = document.getElementById('reorder-form');
+    
+    if (pinnedList) {
+        let draggedItem = null;
+        
+        pinnedList.addEventListener('dragstart', (e) => {
+            const item = e.target.closest('.pinned-item');
+            if (item) {
+                draggedItem = item;
+                item.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            }
+        });
+        
+        pinnedList.addEventListener('dragend', (e) => {
+            const item = e.target.closest('.pinned-item');
+            if (item) {
+                item.classList.remove('dragging');
+                draggedItem = null;
+                updateOrder();
+            }
+        });
+        
+        pinnedList.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const afterElement = getDragAfterElement(pinnedList, e.clientY);
+            if (draggedItem) {
+                if (afterElement) {
+                    pinnedList.insertBefore(draggedItem, afterElement);
+                } else {
+                    pinnedList.appendChild(draggedItem);
+                }
+            }
+        });
+        
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.pinned-item:not(.dragging)')];
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+        
+        function updateOrder() {
+            const items = pinnedList.querySelectorAll('.pinned-item');
+            const order = [...items].map(item => item.dataset.sub).join(',');
+            orderInput.value = order;
+            
+            // Update visible badges
+            items.forEach((item, index) => {
+                const badge = item.querySelector('.pinned-badge');
+                if (index < 5) {
+                    if (!badge) {
+                        const newBadge = document.createElement('span');
+                        newBadge.className = 'pinned-badge';
+                        newBadge.textContent = 'visible';
+                        item.querySelector('.pinned-item-name').after(newBadge);
+                    }
+                } else if (badge) {
+                    badge.remove();
+                }
+            });
+            
+            // Auto-save the new order
+            reorderForm.submit();
+        }
+    }
+</script>
 {% endblock %}

@@ -42,8 +42,41 @@
     <main class="container">
         {% block content %}{% endblock %}
     </main>
+    
+    <!-- Back to Top Button -->
+    <button class="back-to-top" id="back-to-top" title="Back to top">↑</button>
 
     <script>
+        // Default playback settings from user preferences
+        window.defaultVolume = {{ default_volume }} / 100;
+        window.defaultSpeed = {{ default_speed }};
+        
+        // Back to top button
+        (function() {
+            const backToTop = document.getElementById('back-to-top');
+            let ticking = false;
+            
+            function updateBackToTop() {
+                if (window.scrollY > 500) {
+                    backToTop.classList.add('visible');
+                } else {
+                    backToTop.classList.remove('visible');
+                }
+                ticking = false;
+            }
+            
+            window.addEventListener('scroll', () => {
+                if (!ticking) {
+                    requestAnimationFrame(updateBackToTop);
+                    ticking = true;
+                }
+            });
+            
+            backToTop.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        })();
+        
         // Header hide/show on scroll and mouse
         (function() {
             const header = document.querySelector('.header');
@@ -502,24 +535,30 @@
 
                 // Track if first click (for unmute)
                 let firstClick = true;
+                const userDefaultVolume = window.defaultVolume || 0.05;
+                const userDefaultSpeed = window.defaultSpeed || 1.0;
+                
+                // Set default playback speed
+                video.playbackRate = userDefaultSpeed;
+                if (speedSelect) speedSelect.value = userDefaultSpeed;
 
-                // Video click - first click unmutes to 5%, subsequent clicks toggle play/pause
+                // Video click - first click unmutes to default volume, subsequent clicks toggle play/pause
                 video.addEventListener('click', () => {
-                    // First click unmutes to 5% volume
+                    // First click unmutes to user's default volume
                     if (firstClick && (video.muted || video.volume === 0)) {
                         firstClick = false;
                         video.muted = false;
-                        video.volume = 0.05;
+                        video.volume = userDefaultVolume;
                         if (audio) {
                             audio.muted = false;
-                            audio.volume = 0.05;
+                            audio.volume = userDefaultVolume;
                             audio.currentTime = video.currentTime;
                             if (!video.paused) {
                                 audio.play().catch(() => {});
                             }
                         }
-                        volumeSlider.value = 5;
-                        muteBtn.textContent = '🔉';
+                        volumeSlider.value = userDefaultVolume * 100;
+                        muteBtn.textContent = userDefaultVolume > 0.5 ? '🔊' : '🔉';
                         return; // Don't toggle pause on first click
                     }
                     

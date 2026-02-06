@@ -296,6 +296,31 @@ body {
     border-color: var(--accent);
 }
 
+.time-filter-divider {
+    color: var(--text-secondary);
+    margin: 0 5px;
+}
+
+.time-filter-select {
+    padding: 8px 12px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.time-filter-select:hover {
+    border-color: var(--accent);
+}
+
+.time-filter-select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
 /* Posts */
 .post {
     background: var(--bg-secondary);
@@ -358,11 +383,22 @@ body {
     text-decoration: none;
     font-size: 16px;
     transition: background 0.2s, transform 0.1s;
+    border: none;
+    cursor: pointer;
+    color: inherit;
 }
 
 .meta-action-btn:hover {
     background: var(--accent);
     transform: scale(1.1);
+}
+
+.ban-btn:hover {
+    background: rgba(255, 85, 85, 0.4);
+}
+
+.inline-form {
+    display: inline;
 }
 
 .post-author {
@@ -1181,21 +1217,32 @@ body {
     background: var(--bg-tertiary);
     border-radius: 6px;
     border: 1px solid var(--border);
+    cursor: grab;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    user-select: none;
 }
 
-.pinned-item-reorder {
-    display: flex;
-    gap: 4px;
+.pinned-item:active {
+    cursor: grabbing;
 }
 
-.reorder-form {
-    display: inline;
+.pinned-item.dragging {
+    opacity: 0.5;
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.btn-reorder {
-    padding: 4px 8px;
-    font-size: 12px;
-    min-width: 28px;
+.drag-handle {
+    color: var(--text-secondary);
+    font-size: 16px;
+    letter-spacing: 2px;
+    cursor: grab;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+}
+
+.pinned-item:hover .drag-handle {
+    opacity: 1;
 }
 
 .pinned-item-name {
@@ -1232,9 +1279,47 @@ body {
     background: rgba(255, 85, 85, 0.4);
 }
 
+.btn-success {
+    background: rgba(85, 255, 85, 0.2);
+    border-color: rgba(85, 255, 85, 0.4);
+    color: #55ff55;
+}
+
+.btn-success:hover {
+    background: rgba(85, 255, 85, 0.4);
+}
+
 .btn-disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+/* Banned List */
+.banned-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.banned-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 85, 85, 0.3);
+}
+
+.banned-item-name {
+    color: var(--text-primary);
+    font-weight: 500;
+    flex: 1;
+}
+
+.banned-item-remove {
+    display: inline;
 }
 
 .auth-footer {
@@ -1246,6 +1331,108 @@ body {
 
 .auth-footer a {
     color: var(--accent);
+}
+
+/* Back to Top Button */
+.back-to-top {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s, transform 0.3s;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.back-to-top.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.back-to-top:hover {
+    transform: scale(1.1);
+    background: var(--accent-hover);
+}
+
+/* Playback Settings Form */
+.playback-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-row label {
+    font-weight: 500;
+}
+
+.range-input-group {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.range-input {
+    flex: 1;
+    height: 8px;
+    -webkit-appearance: none;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    outline: none;
+}
+
+.range-input::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+}
+
+.range-input::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+}
+
+.range-value {
+    min-width: 50px;
+    text-align: right;
+    font-weight: 500;
+}
+
+.form-select {
+    padding: 10px 15px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    max-width: 200px;
+}
+
+.form-select:focus {
+    outline: none;
+    border-color: var(--accent);
 }
 
 /* Alerts */
