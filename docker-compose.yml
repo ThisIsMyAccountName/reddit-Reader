@@ -7,17 +7,14 @@ services:
       dockerfile: Dockerfile
     container_name: reddit-reader-app
     ports:
-      - "12345:12345"
+      - "0.0.0.0:12345:5000"
     volumes:
-      # Mount cache directory for persistence
       - reddit-cache:/app/.cache
-      # Mount app directory for development (optional - remove in production)
-      - .:/app
     environment:
       - FLASK_APP=app.py
-      - FLASK_ENV=development
-      # Add other environment variables as needed
-    restart: unless-stopped
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+    restart: always
     networks:
       - reddit-network
 
