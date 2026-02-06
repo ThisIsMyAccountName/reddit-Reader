@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Reddit Reader{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <h1>⚙️ Settings</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <form method="post" class="settings-form">
+        <div class="form-group">
+            <label for="pinned_subs">📌 Pinned Subreddits</label>
+            <p class="form-help">Comma-separated list of your favorite subreddits. These will appear in the header for quick access.</p>
+            <input type="text" 
+                   id="pinned_subs" 
+                   name="pinned_subs" 
+                   class="form-input" 
+                   value="{{ pinned_subs }}"
+                   placeholder="e.g., python, gaming, news, askreddit">
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+    </form>
+    
+    <div class="settings-section">
+        <h2>Quick Add</h2>
+        <p class="form-help">Click to add popular subreddits:</p>
+        <div class="quick-add-subs">
+            <button type="button" class="btn btn-small" data-sub="all">all</button>
+            <button type="button" class="btn btn-small" data-sub="popular">popular</button>
+            <button type="button" class="btn btn-small" data-sub="news">news</button>
+            <button type="button" class="btn btn-small" data-sub="gaming">gaming</button>
+            <button type="button" class="btn btn-small" data-sub="pics">pics</button>
+            <button type="button" class="btn btn-small" data-sub="videos">videos</button>
+            <button type="button" class="btn btn-small" data-sub="funny">funny</button>
+            <button type="button" class="btn btn-small" data-sub="askreddit">askreddit</button>
+            <button type="button" class="btn btn-small" data-sub="worldnews">worldnews</button>
+            <button type="button" class="btn btn-small" data-sub="technology">technology</button>
+            <button type="button" class="btn btn-small" data-sub="science">science</button>
+            <button type="button" class="btn btn-small" data-sub="programming">programming</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Quick add functionality
+    document.querySelectorAll('.quick-add-subs button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = document.getElementById('pinned_subs');
+            const sub = btn.dataset.sub;
+            const current = input.value.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
+            
+            if (!current.includes(sub)) {
+                current.push(sub);
+                input.value = current.join(', ');
+            }
+        });
+    });
+</script>
+{% endblock %}

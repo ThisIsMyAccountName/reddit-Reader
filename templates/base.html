@@ -11,6 +11,13 @@
     <header class="header">
         <div class="header-content">
             <a href="{{ url_for('index') }}" class="logo">📖 Reddit Reader</a>
+            {% if current_user.is_authenticated and pinned_subs %}
+            <div class="header-pinned">
+                {% for sub in pinned_subs %}
+                <a href="{{ url_for('subreddit', name=sub) }}" class="pinned-sub">r/{{ sub }}</a>
+                {% endfor %}
+            </div>
+            {% endif %}
             <form action="{{ url_for('search') }}" method="get" class="search-form">
                 <input type="text" 
                        name="q" 
@@ -18,8 +25,12 @@
                        placeholder="Search subreddit... (e.g., python, gaming, news)"
                        autocomplete="off">
             </form>
+            <div class="header-actions">
+                <button class="btn btn-small btn-icon" id="reload-btn" title="Reload" onclick="window.location.reload();">🔄</button>
+            </div>
             <div class="header-auth">
                 {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('settings') }}" class="btn btn-small btn-icon" title="Settings">⚙️</a>
                     <span class="header-user">👤 {{ current_user.username }}</span>
                     <a href="{{ url_for('logout') }}" class="btn btn-small">Logout</a>
                 {% else %}
@@ -45,11 +56,11 @@
             function updateHeader() {
                 const currentScrollY = window.scrollY;
                 
-                // Show header at top of page
-                if (currentScrollY <= 50) {
+                // Show header at top of page or when scrolling up
+                if (currentScrollY <= 50 || currentScrollY < lastScrollY) {
                     header.classList.remove('header-hidden');
                 } 
-                // Hide when scrolling down, show when scrolling up
+                // Hide when scrolling down
                 else if (currentScrollY > lastScrollY) {
                     header.classList.add('header-hidden');
                 }
@@ -335,15 +346,47 @@
                 }
             });
 
-            // Initialize videos
+            // Initialize videos and galleries
             initVideoControls(document);
+            initGalleryLayout(document);
         });
         
         // Listen for dynamically added posts (infinite scroll)
         document.addEventListener('newPostsAdded', (event) => {
             const container = event.detail?.container || document;
             initVideoControls(container);
+            initGalleryLayout(container);
         });
+        
+        // Gallery layout - center images if they don't overflow
+        function initGalleryLayout(rootElement) {
+            rootElement.querySelectorAll('.gallery-scroll').forEach(scroll => {
+                // Check if content overflows
+                const checkOverflow = () => {
+                    if (scroll.scrollWidth > scroll.clientWidth) {
+                        scroll.classList.add('overflow');
+                    } else {
+                        scroll.classList.remove('overflow');
+                    }
+                };
+                
+                // Check on load and when images load
+                checkOverflow();
+                scroll.querySelectorAll('img').forEach(img => {
+                    if (img.complete) {
+                        checkOverflow();
+                    } else {
+                        img.addEventListener('load', checkOverflow);
+                    }
+                });
+                
+                // Check on resize
+                if (!scroll.dataset.resizeObserved) {
+                    scroll.dataset.resizeObserved = 'true';
+                    new ResizeObserver(checkOverflow).observe(scroll);
+                }
+            });
+        }
         
         // Video controls initialization function
         function initVideoControls(rootElement) {

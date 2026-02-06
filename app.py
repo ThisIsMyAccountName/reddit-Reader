@@ -408,6 +408,7 @@ login_manager.login_view = 'login'
 
 reader = RedditReader(user_agent=config.USER_AGENT)
 
+
 # ============================================================================
 # User Authentication
 # ============================================================================
@@ -418,8 +419,21 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+
+@app.context_processor
+def inject_pinned_subs():
+    """Inject pinned subreddits into all templates."""
+    if current_user.is_authenticated:
+        conn = get_db()
+        row = conn.execute('SELECT pinned_subs FROM user_settings WHERE user_id = ?', (current_user.id,)).fetchone()
+        conn.close()
+        if row and row['pinned_subs']:
+            return {'pinned_subs': [s.strip() for s in row['pinned_subs'].split(',') if s.strip()]}
+    return {'pinned_subs': []}
+
+
 def init_db():
-    """Initialize the database with users table."""
+    """Initialize the database with users and settings tables."""
     conn = get_db()
     conn.execute('''
         CREATE TABLE IF NOT EXISTS users (
@@ -427,6 +441,13 @@ def init_db():
             username TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS user_settings (
+            user_id INTEGER PRIMARY KEY,
+            pinned_subs TEXT DEFAULT '',
+            FOREIGN KEY (user_id) REFERENCES users(id)
         )
     ''')
     conn.commit()
@@ -605,6 +626,45 @@ def logout():
     """Logout user."""
     logout_user()
     return redirect(url_for('index'))
+
+
+@app.route('/settings', methods=['GET', 'POST'])
+@login_required
+def settings():
+    """User settings page."""
+    conn = get_db()
+    
+    if request.method == 'POST':
+        pinned_subs = request.form.get('pinned_subs', '').strip()
+        # Normalize: remove r/ prefix, clean up whitespace
+        subs = [s.strip().lstrip('r/').lower() for s in pinned_subs.split(',') if s.strip()]
+        pinned_subs = ','.join(subs)
+        
+        conn.execute('''
+            INSERT INTO user_settings (user_id, pinned_subs) VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET pinned_subs = excluded.pinned_subs
+        ''', (current_user.id, pinned_subs))
+        conn.commit()
+        conn.close()
+        flash('Settings saved!', 'success')
+        return redirect(url_for('settings'))
+    
+    # Get current settings
+    row = conn.execute('SELECT pinned_subs FROM user_settings WHERE user_id = ?', (current_user.id,)).fetchone()
+    conn.close()
+    pinned_subs = row['pinned_subs'] if row else ''
+    
+    return render_template('settings.html', pinned_subs=pinned_subs)
+
+
+def get_user_pinned_subs(user_id):
+    """Get user's pinned subreddits as a list."""
+    conn = get_db()
+    row = conn.execute('SELECT pinned_subs FROM user_settings WHERE user_id = ?', (user_id,)).fetchone()
+    conn.close()
+    if row and row['pinned_subs']:
+        return [s.strip() for s in row['pinned_subs'].split(',') if s.strip()]
+    return []
 
 
 @app.route('/')
