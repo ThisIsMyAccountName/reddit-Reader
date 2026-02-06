@@ -32,20 +32,16 @@
         </h2>
         
         <div class="post-meta">
-            <span class="post-meta-item">
-                👤 <span class="post-author">u/{{ post.author }}</span>
-            </span>
-            <span class="post-meta-item">
-                📍 r/{{ post.subreddit }}
-            </span>
-            <span class="post-meta-item">
-                ⬆️ {{ "{:,}".format(post.score) }}
-            </span>
-            <span class="post-meta-item">
-                💬 {{ "{:,}".format(post.num_comments) }} comments
-            </span>
-            <span class="post-meta-item">
-                🕐 {{ reader.format_timestamp(post.created_utc) }}
+            <span class="post-meta-item">👤 u/{{ post.author }}</span>
+            <span class="post-meta-item">📍 r/{{ post.subreddit }}</span>
+            <span class="post-meta-item">⬆️ {{ "{:,}".format(post.score) }}</span>
+            <span class="post-meta-item">💬 {{ "{:,}".format(post.num_comments) }}</span>
+            <span class="post-meta-item">🕐 {{ reader.format_timestamp(post.created_utc) }}</span>
+            <span class="post-meta-actions">
+                {% if not post.is_self %}
+                <a href="{{ post.url }}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>
+                {% endif %}
+                <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
             </span>
         </div>
         
@@ -114,20 +110,7 @@
         </div>
         {% endif %}
         
-        <div class="post-actions">
-            <a href="{{ url_for('comments', subreddit=post.subreddit, post_id=post.id) }}" 
-               class="btn btn-primary">
-                💬 View Comments
-            </a>
-            {% if not post.is_self %}
-            <a href="{{ post.url }}" target="_blank" class="btn">
-                🔗 View Link
-            </a>
-            {% endif %}
-            <a href="{{ post.permalink }}" target="_blank" class="btn">
-                🔗 Reddit
-            </a>
-        </div>
+
 
         <div class="post-top-comments">
             <div class="post-top-comments-title">Top comments</div>
@@ -241,18 +224,17 @@
                     <a href="/r/${post.subreddit}/comments/${post.id}">${post.title}</a>
                 </h2>
                 <div class="post-meta">
-                    <span class="post-meta-item">👤 <span class="post-author">u/${post.author}</span></span>
+                    <span class="post-meta-item">👤 u/${post.author}</span>
                     <span class="post-meta-item">📍 r/${post.subreddit}</span>
                     <span class="post-meta-item">⬆️ ${score}</span>
-                    <span class="post-meta-item">💬 ${numComments} comments</span>
+                    <span class="post-meta-item">💬 ${numComments}</span>
+                    <span class="post-meta-actions">
+                        ${!post.is_self ? `<a href="${post.url}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>` : ''}
+                        <a href="${post.permalink}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
+                    </span>
                 </div>
                 ${post.is_self && selftext ? `<div class="post-selftext">${selftext}</div>` : ''}
                 ${mediaHTML}
-                <div class="post-actions">
-                    <a href="/r/${post.subreddit}/comments/${post.id}" class="btn btn-primary">💬 View Comments</a>
-                    ${!post.is_self ? `<a href="${post.url}" target="_blank" class="btn">🔗 View Link</a>` : ''}
-                    <a href="${post.permalink}" target="_blank" class="btn">🔗 Reddit</a>
-                </div>
                 <div class="post-top-comments">
                     <div class="post-top-comments-title">Top comments</div>
                     <button class="btn comment-toggle" data-subreddit="${post.subreddit}" data-post-id="${post.id}" data-limit="${commentsLimit}">Load comments</button>
