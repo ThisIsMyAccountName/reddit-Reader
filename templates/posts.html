@@ -24,7 +24,22 @@
 </div>
 
 <div class="main-content">
-<h1 style="margin-bottom: 20px;">r/{{ subreddit }}</h1>
+<div class="subreddit-nav">
+    {% if current_user.is_authenticated and pinned_subs %}
+        {% for sub in pinned_subs[:5] %}
+        <a href="{{ url_for('subreddit', name=sub) }}" class="subreddit-link {% if sub == subreddit %}active{% endif %}">r/{{ sub }}</a>
+        {% endfor %}
+        {% if subreddit not in pinned_subs[:5] %}
+        <span class="subreddit-link active">r/{{ subreddit }}</span>
+        {% endif %}
+    {% else %}
+        <a href="{{ url_for('subreddit', name='all') }}" class="subreddit-link {% if subreddit == 'all' %}active{% endif %}">r/all</a>
+        <a href="{{ url_for('subreddit', name='popular') }}" class="subreddit-link {% if subreddit == 'popular' %}active{% endif %}">r/popular</a>
+        {% if subreddit not in ['all', 'popular'] %}
+        <span class="subreddit-link active">r/{{ subreddit }}</span>
+        {% endif %}
+    {% endif %}
+</div>
 
 <div class="controls">
     <span class="text-secondary">Sort by:</span>

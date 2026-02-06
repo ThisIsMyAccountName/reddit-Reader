@@ -173,15 +173,30 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 20px;
+    gap: 15px;
 }
 
-.logo {
+.logo-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.logo-icon {
     font-size: 24px;
+    text-decoration: none;
+}
+
+.logo-text {
+    font-size: 20px;
     font-weight: bold;
     color: var(--accent);
     text-decoration: none;
-    flex-shrink: 0;
+}
+
+.logo-text:hover {
+    color: var(--accent-hover);
 }
 
 .header-auth {
@@ -196,13 +211,9 @@ body {
     font-size: 14px;
 }
 
-.logo:hover {
-    color: var(--accent-hover);
-}
-
 .search-form {
     flex: 1;
-    max-width: 500px;
+    max-width: 400px;
 }
 
 .search-input {
@@ -218,6 +229,38 @@ body {
 .search-input:focus {
     outline: none;
     border-color: var(--accent);
+}
+
+/* Subreddit Navigation */
+.subreddit-nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.subreddit-link {
+    padding: 8px 16px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    text-decoration: none;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    font-size: 16px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.subreddit-link:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.subreddit-link.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
 }
 
 /* Sort Controls */
@@ -1094,7 +1137,6 @@ body {
     display: flex;
     gap: 6px;
     align-items: center;
-    margin-left: 10px;
 }
 
 .pinned-sub {
@@ -1109,6 +1151,90 @@ body {
 
 .pinned-sub:hover {
     background: var(--accent);
+}
+
+/* Settings Page - Add Sub Form */
+.add-sub-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.add-sub-form .form-input {
+    flex: 1;
+    max-width: 300px;
+}
+
+/* Settings Page - Pinned List */
+.pinned-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 15px;
+}
+
+.pinned-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+
+.pinned-item-reorder {
+    display: flex;
+    gap: 4px;
+}
+
+.reorder-form {
+    display: inline;
+}
+
+.btn-reorder {
+    padding: 4px 8px;
+    font-size: 12px;
+    min-width: 28px;
+}
+
+.pinned-item-name {
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 500;
+    flex: 1;
+}
+
+.pinned-item-name:hover {
+    color: var(--accent);
+}
+
+.pinned-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    background: var(--accent);
+    color: white;
+    border-radius: 10px;
+    margin-right: 10px;
+}
+
+.pinned-item-remove {
+    display: inline;
+}
+
+.btn-danger {
+    background: rgba(255, 85, 85, 0.2);
+    border-color: rgba(255, 85, 85, 0.4);
+    color: #ff5555;
+}
+
+.btn-danger:hover {
+    background: rgba(255, 85, 85, 0.4);
+}
+
+.btn-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .auth-footer {

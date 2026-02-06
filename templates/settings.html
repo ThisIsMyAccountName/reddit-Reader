@@ -6,62 +6,71 @@
 <div class="settings-container">
     <h1>⚙️ Settings</h1>
     
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="flash-message flash-{{ category }}">{{ message }}</div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-    
-    <form method="post" class="settings-form">
-        <div class="form-group">
-            <label for="pinned_subs">📌 Pinned Subreddits</label>
-            <p class="form-help">Comma-separated list of your favorite subreddits. These will appear in the header for quick access.</p>
-            <input type="text" 
-                   id="pinned_subs" 
-                   name="pinned_subs" 
-                   class="form-input" 
-                   value="{{ pinned_subs }}"
-                   placeholder="e.g., python, gaming, news, askreddit">
-        </div>
+    <div class="settings-section">
+        <h2>📌 Pinned Subreddits</h2>
+        <p class="form-help">Your favorite subreddits appear in the header for quick access (first 5 shown).</p>
         
-        <button type="submit" class="btn btn-primary">Save Settings</button>
-    </form>
+        <form method="post" class="add-sub-form">
+            <input type="hidden" name="action" value="add">
+            <input type="text" 
+                   name="sub" 
+                   class="form-input" 
+                   placeholder="Enter subreddit name (e.g., python)"
+                   autocomplete="off">
+            <button type="submit" class="btn btn-primary">Add</button>
+        </form>
+        
+        {% if pinned_subs %}
+        <div class="pinned-list">
+            {% for sub in pinned_subs %}
+            <div class="pinned-item" data-sub="{{ sub }}">
+                <div class="pinned-item-reorder">
+                    {% if not loop.first %}
+                    <form method="post" class="reorder-form">
+                        <input type="hidden" name="action" value="move_up">
+                        <input type="hidden" name="sub" value="{{ sub }}">
+                        <button type="submit" class="btn btn-small btn-reorder" title="Move up">↑</button>
+                    </form>
+                    {% else %}
+                    <span class="btn btn-small btn-reorder btn-disabled">↑</span>
+                    {% endif %}
+                    {% if not loop.last %}
+                    <form method="post" class="reorder-form">
+                        <input type="hidden" name="action" value="move_down">
+                        <input type="hidden" name="sub" value="{{ sub }}">
+                        <button type="submit" class="btn btn-small btn-reorder" title="Move down">↓</button>
+                    </form>
+                    {% else %}
+                    <span class="btn btn-small btn-reorder btn-disabled">↓</span>
+                    {% endif %}
+                </div>
+                <a href="{{ url_for('subreddit', name=sub) }}" class="pinned-item-name">r/{{ sub }}</a>
+                {% if loop.index <= 5 %}<span class="pinned-badge">visible</span>{% endif %}
+                <form method="post" class="pinned-item-remove">
+                    <input type="hidden" name="action" value="remove">
+                    <input type="hidden" name="sub" value="{{ sub }}">
+                    <button type="submit" class="btn btn-small btn-danger" title="Remove">✕</button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-secondary" style="margin-top: 15px;">No pinned subreddits yet. Add some above!</p>
+        {% endif %}
+    </div>
     
     <div class="settings-section">
         <h2>Quick Add</h2>
         <p class="form-help">Click to add popular subreddits:</p>
         <div class="quick-add-subs">
-            <button type="button" class="btn btn-small" data-sub="all">all</button>
-            <button type="button" class="btn btn-small" data-sub="popular">popular</button>
-            <button type="button" class="btn btn-small" data-sub="news">news</button>
-            <button type="button" class="btn btn-small" data-sub="gaming">gaming</button>
-            <button type="button" class="btn btn-small" data-sub="pics">pics</button>
-            <button type="button" class="btn btn-small" data-sub="videos">videos</button>
-            <button type="button" class="btn btn-small" data-sub="funny">funny</button>
-            <button type="button" class="btn btn-small" data-sub="askreddit">askreddit</button>
-            <button type="button" class="btn btn-small" data-sub="worldnews">worldnews</button>
-            <button type="button" class="btn btn-small" data-sub="technology">technology</button>
-            <button type="button" class="btn btn-small" data-sub="science">science</button>
-            <button type="button" class="btn btn-small" data-sub="programming">programming</button>
+            {% for sub in ['all', 'popular', 'news', 'gaming', 'pics', 'videos', 'funny', 'askreddit', 'worldnews', 'technology', 'science', 'programming'] %}
+            <form method="post" style="display: inline;">
+                <input type="hidden" name="action" value="add">
+                <input type="hidden" name="sub" value="{{ sub }}">
+                <button type="submit" class="btn btn-small {% if sub in pinned_subs %}btn-disabled{% endif %}" {% if sub in pinned_subs %}disabled{% endif %}>{{ sub }}</button>
+            </form>
+            {% endfor %}
         </div>
     </div>
 </div>
-
-<script>
-    // Quick add functionality
-    document.querySelectorAll('.quick-add-subs button').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const input = document.getElementById('pinned_subs');
-            const sub = btn.dataset.sub;
-            const current = input.value.split(',').map(s => s.trim().toLowerCase()).filter(s => s);
-            
-            if (!current.includes(sub)) {
-                current.push(sub);
-                input.value = current.join(', ');
-            }
-        });
-    });
-</script>
 {% endblock %}

@@ -10,24 +10,21 @@
 <body>
     <header class="header">
         <div class="header-content">
-            <a href="{{ url_for('index') }}" class="logo">📖 Reddit Reader</a>
-            {% if current_user.is_authenticated and pinned_subs %}
-            <div class="header-pinned">
-                {% for sub in pinned_subs %}
-                <a href="{{ url_for('subreddit', name=sub) }}" class="pinned-sub">r/{{ sub }}</a>
-                {% endfor %}
+            <div class="logo-group">
+                <a href="{{ url_for('index') }}" class="logo-icon" title="Go to r/all">📖</a>
+                {% if is_subreddit_page %}
+                <a href="javascript:window.scrollTo({top:0,behavior:'smooth'});setTimeout(()=>location.reload(),300);" class="logo-text" title="Reload">Reddit Reader</a>
+                {% else %}
+                <a href="{{ url_for('index') }}" class="logo-text" title="Go to r/all">Reddit Reader</a>
+                {% endif %}
             </div>
-            {% endif %}
             <form action="{{ url_for('search') }}" method="get" class="search-form">
                 <input type="text" 
                        name="q" 
                        class="search-input" 
-                       placeholder="Search subreddit... (e.g., python, gaming, news)"
+                       placeholder="Search subreddit..."
                        autocomplete="off">
             </form>
-            <div class="header-actions">
-                <button class="btn btn-small btn-icon" id="reload-btn" title="Reload" onclick="window.location.reload();">🔄</button>
-            </div>
             <div class="header-auth">
                 {% if current_user.is_authenticated %}
                     <a href="{{ url_for('settings') }}" class="btn btn-small btn-icon" title="Settings">⚙️</a>

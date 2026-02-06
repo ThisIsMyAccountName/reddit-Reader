@@ -422,14 +422,20 @@ def get_db():
 
 @app.context_processor
 def inject_pinned_subs():
-    """Inject pinned subreddits into all templates."""
+    """Inject pinned subreddits and page type into all templates."""
+    context = {'pinned_subs': [], 'is_subreddit_page': False}
+    
+    # Check if current page is a subreddit page
+    if request.endpoint in ('subreddit', 'comments'):
+        context['is_subreddit_page'] = True
+    
     if current_user.is_authenticated:
         conn = get_db()
         row = conn.execute('SELECT pinned_subs FROM user_settings WHERE user_id = ?', (current_user.id,)).fetchone()
         conn.close()
         if row and row['pinned_subs']:
-            return {'pinned_subs': [s.strip() for s in row['pinned_subs'].split(',') if s.strip()]}
-    return {'pinned_subs': []}
+            context['pinned_subs'] = [s.strip() for s in row['pinned_subs'].split(',') if s.strip()]
+    return context
 
 
 def init_db():
@@ -634,27 +640,40 @@ def settings():
     """User settings page."""
     conn = get_db()
     
+    # Get current settings
+    row = conn.execute('SELECT pinned_subs FROM user_settings WHERE user_id = ?', (current_user.id,)).fetchone()
+    current_subs = []
+    if row and row['pinned_subs']:
+        current_subs = [s.strip() for s in row['pinned_subs'].split(',') if s.strip()]
+    
     if request.method == 'POST':
-        pinned_subs = request.form.get('pinned_subs', '').strip()
-        # Normalize: remove r/ prefix, clean up whitespace
-        subs = [s.strip().lstrip('r/').lower() for s in pinned_subs.split(',') if s.strip()]
-        pinned_subs = ','.join(subs)
+        action = request.form.get('action')
+        sub = request.form.get('sub', '').strip().lstrip('r/').lower()
         
+        if action == 'add' and sub and sub not in current_subs:
+            current_subs.append(sub)
+        elif action == 'remove' and sub in current_subs:
+            current_subs.remove(sub)
+        elif action == 'move_up' and sub in current_subs:
+            idx = current_subs.index(sub)
+            if idx > 0:
+                current_subs[idx], current_subs[idx-1] = current_subs[idx-1], current_subs[idx]
+        elif action == 'move_down' and sub in current_subs:
+            idx = current_subs.index(sub)
+            if idx < len(current_subs) - 1:
+                current_subs[idx], current_subs[idx+1] = current_subs[idx+1], current_subs[idx]
+        
+        pinned_subs = ','.join(current_subs)
         conn.execute('''
             INSERT INTO user_settings (user_id, pinned_subs) VALUES (?, ?)
             ON CONFLICT(user_id) DO UPDATE SET pinned_subs = excluded.pinned_subs
         ''', (current_user.id, pinned_subs))
         conn.commit()
         conn.close()
-        flash('Settings saved!', 'success')
         return redirect(url_for('settings'))
     
-    # Get current settings
-    row = conn.execute('SELECT pinned_subs FROM user_settings WHERE user_id = ?', (current_user.id,)).fetchone()
     conn.close()
-    pinned_subs = row['pinned_subs'] if row else ''
-    
-    return render_template('settings.html', pinned_subs=pinned_subs)
+    return render_template('settings.html', pinned_subs=current_subs)
 
 
 def get_user_pinned_subs(user_id):
