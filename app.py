@@ -50,6 +50,7 @@ class RedditReader:
         image_url = ''
         video_url = ''
         audio_url = ''
+        hls_url = ''
         gallery_urls: List[str] = []
         is_video = bool(post_data.get('is_video', False))
 
@@ -58,13 +59,22 @@ class RedditReader:
         if isinstance(media, dict):
             reddit_video = media.get('reddit_video') or {}
             if isinstance(reddit_video, dict):
-                # Get the MP4 fallback URL which has audio (not DASH_video which is video-only)
-                video_url = reddit_video.get('fallback_url', '')
+                # Get HLS URL - has audio included
+                hls_url = reddit_video.get('hls_url', '')
                 
-                # Check if this is a DASH video-only URL and extract audio
-                if video_url and 'DASH_video' in video_url:
-                    # Construct the audio URL by replacing DASH_video with DASH_audio
-                    audio_url = video_url.replace('DASH_video', 'DASH_audio')
+                # Get fallback URL for video
+                fallback_url = reddit_video.get('fallback_url', '')
+                if fallback_url:
+                    # Clean video URL (remove query params)
+                    video_url = fallback_url.split('?')[0]
+                    
+                    # Extract base URL: https://v.redd.it/{video_id}
+                    # From: https://v.redd.it/{video_id}/DASH_720.mp4 or /CMAF_480.mp4
+                    base = fallback_url.split('?')[0].rsplit('/', 1)[0]
+                    
+                    # Audio is at DASH_AUDIO_128.mp4 (128kbps) or DASH_AUDIO_64.mp4 (64kbps)
+                    # Try 128 first for better quality
+                    audio_url = f"{base}/DASH_AUDIO_128.mp4"
 
         # Gallery/album support
         if post_data.get('is_gallery'):
@@ -103,10 +113,11 @@ class RedditReader:
             'is_video': is_video,
             'video_url': video_url,
             'audio_url': audio_url,
+            'hls_url': hls_url,
             'gallery_urls': gallery_urls,
         }
     
-    def fetch_subreddit(self, subreddit: str = "all", sort: str = "hot", limit: int = 25) -> Optional[Dict]:
+    def fetch_subreddit(self, subreddit: str = "all", sort: str = "hot", limit: int = 25, after: str = None) -> Optional[Dict]:
         """
         Fetch posts from a subreddit
         
@@ -114,12 +125,15 @@ class RedditReader:
             subreddit: Name of the subreddit (default: "all")
             sort: Sort method - "hot", "new", "top", "rising" (default: "hot")
             limit: Number of posts to fetch (default: 25, max: 100)
+            after: Pagination token for next page (default: None)
             
         Returns:
             JSON response from Reddit or None if failed
         """
         url = f"https://reddit.com/r/{subreddit}/{sort}.json"
         params = {'limit': min(limit, 100)}
+        if after:
+            params['after'] = after
         
         return self._get_json(url, params=params)
     
@@ -175,6 +189,7 @@ class RedditReader:
                 'is_video': media['is_video'],
                 'video_url': media['video_url'],
                 'audio_url': media['audio_url'],
+                'hls_url': media['hls_url'],
                 'gallery_urls': media['gallery_urls'],
             }
             posts.append(post)
@@ -428,11 +443,17 @@ def subreddit(name):
         if data:
             _set_cache(subreddit_cache, "subreddit", cache_key, data)
     posts = reader.parse_posts(data) if data else []
+    
+    # Get the 'after' token for pagination
+    after = None
+    if data and 'data' in data:
+        after = data['data'].get('after')
 
     return render_template('posts.html', 
                          posts=posts, 
                          subreddit=name, 
                          sort=sort,
+                         after=after,
                          comments_limit=config.TOP_COMMENTS_PER_POST,
                          reader=reader)
 
@@ -470,6 +491,7 @@ def comments(subreddit, post_id):
         'is_video': media['is_video'],
         'video_url': media['video_url'],
         'audio_url': media['audio_url'],
+        'hls_url': media['hls_url'],
         'gallery_urls': media['gallery_urls'],
     }
     
@@ -514,6 +536,28 @@ def api_comments():
     top_limit = int(request.args.get('limit', config.TOP_COMMENTS_PER_POST))
     return jsonify({"comments": comments[:top_limit]})
 
+
+@app.route('/api/posts')
+def api_posts():
+    """Return posts for infinite scroll."""
+    subreddit = request.args.get('subreddit', 'all').strip()
+    sort = request.args.get('sort', config.DEFAULT_SORT)
+    after = request.args.get('after', '').strip() or None
+    limit = int(request.args.get('limit', config.DEFAULT_POST_LIMIT))
+    
+    data = reader.fetch_subreddit(subreddit, sort=sort, limit=limit, after=after)
+    posts = reader.parse_posts(data) if data else []
+    
+    # Get the 'after' token for next page
+    next_after = None
+    if data and 'data' in data:
+        next_after = data['data'].get('after')
+    
+    return jsonify({
+        "posts": posts,
+        "after": next_after,
+        "comments_limit": config.TOP_COMMENTS_PER_POST
+    })
 
 
 @app.errorhandler(404)

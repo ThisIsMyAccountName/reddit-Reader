@@ -17,9 +17,14 @@
        class="sort-link {% if sort == 'rising' %}active{% endif %}">📈 Rising</a>
 </div>
 
+<div id="posts-container" 
+     data-subreddit="{{ subreddit }}" 
+     data-sort="{{ sort }}" 
+     data-after="{{ after or '' }}"
+     data-comments-limit="{{ comments_limit }}">
 {% if posts %}
     {% for post in posts %}
-    <article class="post">
+    <article class="post" data-post-index="{{ loop.index }}">
         <h2 class="post-title">
             <a href="{{ url_for('comments', subreddit=post.subreddit, post_id=post.id) }}">
                 {{ post.title }}
@@ -50,11 +55,11 @@
         </div>
         {% endif %}
 
-        {% if post.is_video and post.video_url %}
-        <div class="post-media video-container">
-            <video class="post-video" src="{{ post.video_url }}" loop playsinline></video>
+        {% if post.is_video and (post.hls_url or post.video_url) %}
+        <div class="post-media video-container" data-hls-url="{{ post.hls_url }}" data-audio-url="{{ post.audio_url }}">
+            <video class="post-video" src="{{ post.video_url }}" loop playsinline autoplay muted></video>
             {% if post.audio_url %}
-            <audio class="video-audio" src="{{ post.audio_url }}" style="display:none;"></audio>
+            <audio class="video-audio" src="{{ post.audio_url }}" style="display:none;" loop muted></audio>
             {% endif %}
             <button class="media-download-btn" data-url="{{ post.video_url }}" data-type="video" title="Download" aria-label="Download">
                 ⤓
@@ -65,10 +70,21 @@
                     <div class="video-progress"></div>
                 </div>
                 <div class="video-volume-container">
-                    <button class="video-btn video-mute" aria-label="Mute">�</button>
-                    <input type="range" class="video-volume-slider" min="0" max="100" value="30">
+                    <button class="video-btn video-mute" aria-label="Mute">🔇</button>
+                    <input type="range" class="video-volume-slider" min="0" max="100" value="0">
                 </div>
-                <button class="video-btn video-speed" aria-label="Playback speed">1x</button>
+                <div class="video-speed-container">
+                    <select class="video-speed-select" aria-label="Playback speed">
+                        <option value="0.25">0.25x</option>
+                        <option value="0.5">0.5x</option>
+                        <option value="0.75">0.75x</option>
+                        <option value="1" selected>1x</option>
+                        <option value="1.25">1.25x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="1.75">1.75x</option>
+                        <option value="2">2x</option>
+                    </select>
+                </div>
                 <button class="video-btn video-fullscreen" aria-label="Fullscreen">⛶</button>
             </div>
         </div>
@@ -125,11 +141,199 @@
         </div>
     </article>
     {% endfor %}
+</div>
+
+<div id="loading-indicator" style="display: none; text-align: center; padding: 20px;">
+    <span class="text-secondary">Loading more posts...</span>
+</div>
+
+<div id="no-more-posts" style="display: none; text-align: center; padding: 20px;">
+    <span class="text-secondary">No more posts to load</span>
+</div>
+
 {% else %}
     <div class="error-container">
         <div class="error-title">😕</div>
         <p class="error-message">No posts found for r/{{ subreddit }}</p>
         <a href="{{ url_for('index') }}" class="btn btn-primary">Go to r/all</a>
     </div>
+</div>
 {% endif %}
+
+<script>
+(function() {
+    const container = document.getElementById('posts-container');
+    if (!container) return;
+    
+    const subreddit = container.dataset.subreddit;
+    const sort = container.dataset.sort;
+    const commentsLimit = container.dataset.commentsLimit;
+    let after = container.dataset.after;
+    let loading = false;
+    let noMorePosts = false;
+    let postCount = document.querySelectorAll('.post').length;
+    
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const noMoreIndicator = document.getElementById('no-more-posts');
+    
+    // Create post HTML from post data
+    function createPostHTML(post, index) {
+        const selftext = post.selftext ? post.selftext.substring(0, 300) + (post.selftext.length > 300 ? '...' : '') : '';
+        const score = post.score.toLocaleString();
+        const numComments = post.num_comments.toLocaleString();
+        
+        let mediaHTML = '';
+        
+        if (post.is_video && (post.hls_url || post.video_url)) {
+            mediaHTML = `
+                <div class="post-media video-container" data-hls-url="${post.hls_url || ''}" data-audio-url="${post.audio_url || ''}">
+                    <video class="post-video" src="${post.video_url}" loop playsinline autoplay muted></video>
+                    ${post.audio_url ? `<audio class="video-audio" src="${post.audio_url}" style="display:none;" loop muted></audio>` : ''}
+                    <button class="media-download-btn" data-url="${post.video_url}" data-type="video" title="Download" aria-label="Download">⤓</button>
+                    <div class="video-controls">
+                        <button class="video-btn video-play-pause" aria-label="Play/Pause">⏸</button>
+                        <div class="video-timeline"><div class="video-progress"></div></div>
+                        <div class="video-volume-container">
+                            <button class="video-btn video-mute" aria-label="Mute">🔇</button>
+                            <input type="range" class="video-volume-slider" min="0" max="100" value="0">
+                        </div>
+                        <div class="video-speed-container">
+                            <select class="video-speed-select" aria-label="Playback speed">
+                                <option value="0.25">0.25x</option>
+                                <option value="0.5">0.5x</option>
+                                <option value="0.75">0.75x</option>
+                                <option value="1" selected>1x</option>
+                                <option value="1.25">1.25x</option>
+                                <option value="1.5">1.5x</option>
+                                <option value="1.75">1.75x</option>
+                                <option value="2">2x</option>
+                            </select>
+                        </div>
+                        <button class="video-btn video-fullscreen" aria-label="Fullscreen">⛶</button>
+                    </div>
+                </div>`;
+        } else if (post.gallery_urls && post.gallery_urls.length > 0) {
+            const galleryItems = post.gallery_urls.map(url => `
+                <div class="gallery-item">
+                    <img class="gallery-image" src="${url}" alt="Gallery image" loading="lazy">
+                    <button class="media-download-btn" data-url="${url}" data-type="image" title="Download" aria-label="Download">⤓</button>
+                </div>
+            `).join('');
+            mediaHTML = `
+                <div class="post-media gallery">
+                    <div class="gallery-scroll">${galleryItems}</div>
+                    ${post.gallery_urls.length > 1 ? `
+                        <button class="gallery-nav gallery-nav-left" aria-label="Previous image">‹</button>
+                        <button class="gallery-nav gallery-nav-right" aria-label="Next image">›</button>
+                    ` : ''}
+                </div>`;
+        } else if (post.image_url) {
+            mediaHTML = `
+                <div class="post-media">
+                    <img class="post-image" src="${post.image_url}" alt="Post image">
+                    <button class="media-download-btn" data-url="${post.image_url}" data-type="image" title="Download" aria-label="Download">⤓</button>
+                </div>`;
+        }
+        
+        return `
+            <article class="post" data-post-index="${index}">
+                <h2 class="post-title">
+                    <a href="/r/${post.subreddit}/comments/${post.id}">${post.title}</a>
+                </h2>
+                <div class="post-meta">
+                    <span class="post-meta-item">👤 <span class="post-author">u/${post.author}</span></span>
+                    <span class="post-meta-item">📍 r/${post.subreddit}</span>
+                    <span class="post-meta-item">⬆️ ${score}</span>
+                    <span class="post-meta-item">💬 ${numComments} comments</span>
+                </div>
+                ${post.is_self && selftext ? `<div class="post-selftext">${selftext}</div>` : ''}
+                ${mediaHTML}
+                <div class="post-actions">
+                    <a href="/r/${post.subreddit}/comments/${post.id}" class="btn btn-primary">💬 View Comments</a>
+                    ${!post.is_self ? `<a href="${post.url}" target="_blank" class="btn">🔗 View Link</a>` : ''}
+                    <a href="${post.permalink}" target="_blank" class="btn">🔗 Reddit</a>
+                </div>
+                <div class="post-top-comments">
+                    <div class="post-top-comments-title">Top comments</div>
+                    <button class="btn comment-toggle" data-subreddit="${post.subreddit}" data-post-id="${post.id}" data-limit="${commentsLimit}">Load comments</button>
+                    <div class="comment-list" data-show-author="false" hidden></div>
+                </div>
+            </article>
+        `;
+    }
+    
+    // Initialize video controls for newly added posts
+    function initVideoControls(container) {
+        // Trigger DOMContentLoaded-like initialization for new videos
+        const event = new CustomEvent('newPostsAdded', { detail: { container } });
+        document.dispatchEvent(event);
+    }
+    
+    async function loadMorePosts() {
+        if (loading || noMorePosts || !after) return;
+        
+        loading = true;
+        loadingIndicator.style.display = 'block';
+        
+        try {
+            const response = await fetch(`/api/posts?subreddit=${encodeURIComponent(subreddit)}&sort=${encodeURIComponent(sort)}&after=${encodeURIComponent(after)}`);
+            const data = await response.json();
+            
+            if (data.posts && data.posts.length > 0) {
+                data.posts.forEach(post => {
+                    postCount++;
+                    const postHTML = createPostHTML(post, postCount);
+                    container.insertAdjacentHTML('beforeend', postHTML);
+                });
+                
+                after = data.after;
+                container.dataset.after = after || '';
+                
+                if (!after) {
+                    noMorePosts = true;
+                    noMoreIndicator.style.display = 'block';
+                }
+                
+                // Re-initialize video controls for new posts
+                initVideoControls(container);
+                setupTriggerObserver();
+            } else {
+                noMorePosts = true;
+                noMoreIndicator.style.display = 'block';
+            }
+        } catch (err) {
+            console.error('Error loading more posts:', err);
+        } finally {
+            loading = false;
+            loadingIndicator.style.display = 'none';
+        }
+    }
+    
+    // Observer for triggering load at post 20 (or 5 posts before end)
+    function setupTriggerObserver() {
+        const posts = document.querySelectorAll('.post');
+        const triggerIndex = Math.max(posts.length - 5, 20);
+        const triggerPost = posts[triggerIndex - 1];
+        
+        if (!triggerPost || triggerPost.dataset.observed) return;
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    loadMorePosts();
+                    observer.disconnect();
+                }
+            });
+        }, { threshold: 0.1 });
+        
+        triggerPost.dataset.observed = 'true';
+        observer.observe(triggerPost);
+    }
+    
+    // Initial setup
+    if (after) {
+        setupTriggerObserver();
+    }
+})();
+</script>
 {% endblock %}
