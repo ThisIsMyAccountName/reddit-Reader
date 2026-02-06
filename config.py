@@ -30,6 +30,11 @@ RATE_LIMIT_RETRY_DELAY = float(os.getenv("RATE_LIMIT_RETRY_DELAY", "2.0"))
 # User agent for Reddit API requests
 USER_AGENT = os.getenv("USER_AGENT", "RedditReader/1.0 (Custom Reddit JSON Reader)")
 
+# Authentication settings
+SECRET_KEY = os.getenv("SECRET_KEY", "change-this-to-a-random-secret-key-in-production")
+DATABASE_PATH = os.getenv("DATABASE_PATH", "users.db")
+REMEMBER_COOKIE_DURATION = int(os.getenv("REMEMBER_COOKIE_DURATION", "2592000"))  # 30 days in seconds
+
 # Display settings
 SHOW_POST_DETAILS = os.getenv("SHOW_POST_DETAILS", "True").lower() == "true"
 MAX_SELFTEXT_LENGTH = int(os.getenv("MAX_SELFTEXT_LENGTH", "150"))

@@ -57,6 +57,19 @@ body {
     font-weight: bold;
     color: var(--accent);
     text-decoration: none;
+    flex-shrink: 0;
+}
+
+.header-auth {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.header-user {
+    color: var(--text-secondary);
+    font-size: 14px;
 }
 
 .logo:hover {
@@ -800,4 +813,119 @@ body {
     .post-meta {
         font-size: 12px;
     }
+    
+    .header-auth {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Authentication Pages */
+.auth-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+    padding: 20px;
+}
+
+.auth-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 30px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.auth-title {
+    font-size: 24px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group label {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.form-input {
+    padding: 10px 15px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.form-checkbox {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-checkbox input {
+    width: 16px;
+    height: 16px;
+}
+
+.form-checkbox label {
+    margin: 0;
+}
+
+.btn-block {
+    width: 100%;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.auth-footer {
+    margin-top: 20px;
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.auth-footer a {
+    color: var(--accent);
+}
+
+/* Alerts */
+.alert {
+    padding: 10px 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.alert-error {
+    background: rgba(255, 85, 85, 0.15);
+    border: 1px solid rgba(255, 85, 85, 0.3);
+    color: #ff5555;
+}
+
+.alert-success {
+    background: rgba(63, 185, 80, 0.15);
+    border: 1px solid rgba(63, 185, 80, 0.3);
+    color: var(--success);
 }

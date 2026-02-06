@@ -3,7 +3,11 @@ Reddit Reader Web App
 A minimal dark mode web interface for browsing Reddit
 """
 
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import timedelta
+import sqlite3
 import time
 import os
 import shelve
@@ -367,7 +371,85 @@ class RedditReader:
 # ============================================================================
 
 app = Flask(__name__)
+app.secret_key = config.SECRET_KEY
+app.config['REMEMBER_COOKIE_DURATION'] = timedelta(seconds=config.REMEMBER_COOKIE_DURATION)
+
+# Initialize Flask-Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
 reader = RedditReader(user_agent=config.USER_AGENT)
+
+# ============================================================================
+# User Authentication
+# ============================================================================
+
+def get_db():
+    """Get database connection."""
+    conn = sqlite3.connect(config.DATABASE_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    """Initialize the database with users table."""
+    conn = get_db()
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+# Initialize database on startup
+init_db()
+
+class User(UserMixin):
+    """User class for Flask-Login."""
+    def __init__(self, id, username):
+        self.id = id
+        self.username = username
+    
+    @staticmethod
+    def get(user_id):
+        conn = get_db()
+        user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+        conn.close()
+        if user:
+            return User(user['id'], user['username'])
+        return None
+    
+    @staticmethod
+    def get_by_username(username):
+        conn = get_db()
+        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        conn.close()
+        if user:
+            return {'id': user['id'], 'username': user['username'], 'password_hash': user['password_hash']}
+        return None
+    
+    @staticmethod
+    def create(username, password):
+        conn = get_db()
+        try:
+            conn.execute(
+                'INSERT INTO users (username, password_hash) VALUES (?, ?)',
+                (username, generate_password_hash(password))
+            )
+            conn.commit()
+            conn.close()
+            return True
+        except sqlite3.IntegrityError:
+            conn.close()
+            return False
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.get(int(user_id))
 
 # Simple in-memory caches
 subreddit_cache = {}
@@ -421,6 +503,81 @@ def _get_cached(cache, cache_name, key, ttl):
 def _set_cache(cache, cache_name, key, value):
     cache[key] = (time.time(), value)
     _disk_set(cache_name, key, value)
+
+
+# ============================================================================
+# Authentication Routes
+# ============================================================================
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login page."""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        remember = request.form.get('remember', False)
+        
+        if not username or not password:
+            flash('Please fill in all fields.', 'error')
+            return render_template('login.html')
+        
+        user_data = User.get_by_username(username)
+        if user_data and check_password_hash(user_data['password_hash'], password):
+            user = User(user_data['id'], user_data['username'])
+            login_user(user, remember=bool(remember))
+            next_page = request.args.get('next')
+            return redirect(next_page if next_page else url_for('index'))
+        else:
+            flash('Invalid username or password.', 'error')
+    
+    return render_template('login.html')
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    """Registration page."""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
+        confirm = request.form.get('confirm', '')
+        
+        if not username or not password:
+            flash('Please fill in all fields.', 'error')
+            return render_template('register.html')
+        
+        if len(username) < 3:
+            flash('Username must be at least 3 characters.', 'error')
+            return render_template('register.html')
+        
+        if len(password) < 6:
+            flash('Password must be at least 6 characters.', 'error')
+            return render_template('register.html')
+        
+        if password != confirm:
+            flash('Passwords do not match.', 'error')
+            return render_template('register.html')
+        
+        if User.create(username, password):
+            flash('Account created! Please log in.', 'success')
+            return redirect(url_for('login'))
+        else:
+            flash('Username already exists.', 'error')
+    
+    return render_template('register.html')
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    """Logout user."""
+    logout_user()
+    return redirect(url_for('index'))
 
 
 @app.route('/')

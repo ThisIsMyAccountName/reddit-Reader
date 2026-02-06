@@ -18,6 +18,15 @@
                        placeholder="Search subreddit... (e.g., python, gaming, news)"
                        autocomplete="off">
             </form>
+            <div class="header-auth">
+                {% if current_user.is_authenticated %}
+                    <span class="header-user">👤 {{ current_user.username }}</span>
+                    <a href="{{ url_for('logout') }}" class="btn btn-small">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="btn btn-small">Login</a>
+                    <a href="{{ url_for('register') }}" class="btn btn-small btn-primary">Register</a>
+                {% endif %}
+            </div>
         </div>
     </header>
 

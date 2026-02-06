@@ -34,6 +34,9 @@ Thumbs.db
 .cache
 *.cache
 
+# Database
+*.db
+
 # Documentation
 README.md
 LICENSE
