@@ -121,6 +121,33 @@ class RedditReader:
             'gallery_urls': gallery_urls,
         }
     
+    def _get_thumbnail(self, post_data: Dict) -> str:
+        """Get the best available thumbnail for a post."""
+        # First try the thumbnail field
+        thumbnail = post_data.get('thumbnail', '')
+        if thumbnail and thumbnail.startswith('http'):
+            return html.unescape(thumbnail)
+        
+        # Try preview images (better quality, works for videos too)
+        preview = post_data.get('preview') or {}
+        images = preview.get('images') or []
+        if images:
+            # Get a smaller resolution for thumbnail
+            resolutions = images[0].get('resolutions') or []
+            if resolutions:
+                # Pick a medium resolution (around 320px wide)
+                for res in resolutions:
+                    if res.get('width', 0) >= 320:
+                        return html.unescape(res.get('url', ''))
+                # Fallback to last (largest) resolution
+                return html.unescape(resolutions[-1].get('url', ''))
+            # Fallback to source
+            source = images[0].get('source') or {}
+            if source.get('url'):
+                return html.unescape(source.get('url', ''))
+        
+        return ''
+    
     def fetch_subreddit(self, subreddit: str = "all", sort: str = "hot", limit: int = 25, after: str = None) -> Optional[Dict]:
         """
         Fetch posts from a subreddit
@@ -188,7 +215,7 @@ class RedditReader:
                 'selftext': post_data.get('selftext', ''),
                 'is_self': post_data.get('is_self', False),
                 'id': post_data.get('id', ''),
-                'thumbnail': post_data.get('thumbnail', ''),
+                'thumbnail': self._get_thumbnail(post_data),
                 'image_url': media['image_url'],
                 'is_video': media['is_video'],
                 'video_url': media['video_url'],

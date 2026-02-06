@@ -29,12 +29,50 @@
             </div>
         </div>
     </header>
+    <div class="header-spacer"></div>
 
     <main class="container">
         {% block content %}{% endblock %}
     </main>
 
     <script>
+        // Header hide/show on scroll and mouse
+        (function() {
+            const header = document.querySelector('.header');
+            let lastScrollY = window.scrollY;
+            let ticking = false;
+            
+            function updateHeader() {
+                const currentScrollY = window.scrollY;
+                
+                // Show header at top of page
+                if (currentScrollY <= 50) {
+                    header.classList.remove('header-hidden');
+                } 
+                // Hide when scrolling down, show when scrolling up
+                else if (currentScrollY > lastScrollY) {
+                    header.classList.add('header-hidden');
+                }
+                
+                lastScrollY = currentScrollY;
+                ticking = false;
+            }
+            
+            window.addEventListener('scroll', () => {
+                if (!ticking) {
+                    requestAnimationFrame(updateHeader);
+                    ticking = true;
+                }
+            });
+            
+            // Show header when mouse moves to top of viewport
+            document.addEventListener('mousemove', (e) => {
+                if (e.clientY <= 50) {
+                    header.classList.remove('header-hidden');
+                }
+            });
+        })();
+
         document.addEventListener('click', async (event) => {
             const toggle = event.target.closest('.comment-toggle');
             if (!toggle) return;
@@ -573,12 +611,22 @@
                                 playPauseBtn.textContent = '⏸';
                             }
                         } else {
-                            // Video is less than 70% visible - pause it
+                            // Video is less than 70% visible - pause and mute it
                             if (!video.paused) {
                                 video.pause();
                                 if (audio) audio.pause();
                                 playPauseBtn.textContent = '▶';
                             }
+                            // Auto-mute when scrolled out of view
+                            video.muted = true;
+                            video.volume = 0;
+                            if (audio) {
+                                audio.muted = true;
+                                audio.volume = 0;
+                            }
+                            volumeSlider.value = 0;
+                            muteBtn.textContent = '🔇';
+                            firstClick = true; // Reset so next click unmutes at 5%
                         }
                     });
                 }, {
