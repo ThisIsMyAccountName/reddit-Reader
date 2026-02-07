@@ -4,8 +4,9 @@
 
 {% block content %}
 <!-- Mini navigation sidebar -->
-<div class="mini-nav" id="mini-nav">
+<div class="mini-nav {% if sidebar_position == 'right' %}mini-nav-right{% elif sidebar_position == 'off' %}mini-nav-hidden{% endif %}" id="mini-nav">
     <div class="mini-nav-title">Posts</div>
+    <div class="mini-nav-viewport" id="mini-nav-viewport"></div>
     <div class="mini-nav-items" id="mini-nav-items">
         {% for post in posts %}
         <a href="#post-{{ loop.index }}" class="mini-nav-item" data-post-index="{{ loop.index }}" title="{{ post.title }}">
@@ -26,10 +27,10 @@
 <div class="main-content">
 <div class="subreddit-nav">
     {% if current_user.is_authenticated and pinned_subs %}
-        {% for sub in pinned_subs[:5] %}
+        {% for sub in pinned_subs %}
         <a href="{{ url_for('subreddit', name=sub) }}" class="subreddit-link {% if sub == subreddit %}active{% endif %}">r/{{ sub }}</a>
         {% endfor %}
-        {% if subreddit not in pinned_subs[:5] %}
+        {% if subreddit not in pinned_subs %}
         <span class="subreddit-link active">r/{{ subreddit }}</span>
         {% endif %}
     {% else %}
@@ -73,35 +74,41 @@
      data-comments-limit="{{ comments_limit }}">
 {% if posts %}
     {% for post in posts %}
-    <article class="post" id="post-{{ loop.index }}" data-post-index="{{ loop.index }}" data-thumbnail="{{ post.thumbnail or post.image_url or '' }}">
+    <article class="post" id="post-{{ loop.index }}" 
+             data-post-index="{{ loop.index }}" 
+             data-thumbnail="{{ post.thumbnail or post.image_url or '' }}"
+             data-subreddit="{{ post.subreddit }}"
+             data-post-id="{{ post.id }}"
+             data-current-limit="0"
+             data-increment="3"
+             style="cursor: pointer;">
         <h2 class="post-title">
             <a href="{{ url_for('comments', subreddit=post.subreddit, post_id=post.id) }}">
                 {{ post.title }}
             </a>
+            <div class="post-meta">
+                <span class="post-meta-item">r/{{ post.subreddit }}</span>
+                <span class="post-meta-actions">
+                    {% if not post.is_self %}
+                    <a href="{{ post.url }}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>
+                    {% endif %}
+                    <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
+                    {% if current_user.is_authenticated and post.subreddit != subreddit %}
+                    <form method="post" action="{{ url_for('ban_subreddit', subreddit=post.subreddit) }}" class="inline-form" onsubmit="return confirm('Ban r/{{ post.subreddit }}? Posts from this subreddit will be hidden.')">
+                        <button type="submit" class="meta-action-btn ban-btn" title="Ban r/{{ post.subreddit }}">🚫</button>
+                    </form>
+                    {% endif %}
+                </span>
+            </div>
         </h2>
-        
-        <div class="post-meta">
-            <span class="post-meta-item">👤 u/{{ post.author }}</span>
-            <span class="post-meta-item">📍 r/{{ post.subreddit }}</span>
-            <span class="post-meta-item">⬆️ {{ "{:,}".format(post.score) }}</span>
-            <span class="post-meta-item">💬 {{ "{:,}".format(post.num_comments) }}</span>
-            <span class="post-meta-item">🕐 {{ reader.format_timestamp(post.created_utc) }}</span>
-            <span class="post-meta-actions">
-                {% if not post.is_self %}
-                <a href="{{ post.url }}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>
-                {% endif %}
-                <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
-                {% if current_user.is_authenticated and post.subreddit != subreddit %}
-                <form method="post" action="{{ url_for('ban_subreddit', subreddit=post.subreddit) }}" class="inline-form" onsubmit="return confirm('Ban r/{{ post.subreddit }}? Posts from this subreddit will be hidden.')">
-                    <button type="submit" class="meta-action-btn ban-btn" title="Ban r/{{ post.subreddit }}">🚫</button>
-                </form>
-                {% endif %}
-            </span>
-        </div>
         
         {% if post.is_self and post.selftext %}
         <div class="post-selftext">
-            {{ post.selftext[:300] }}{% if post.selftext|length > 300 %}...{% endif %}
+            {% if not post.thumbnail and not post.image_url %}
+                {{ post.selftext | format_content | safe }}
+            {% else %}
+                {{ post.selftext[:300] | format_content | safe }}{% if post.selftext|length > 300 %}...{% endif %}
+            {% endif %}
         </div>
         {% endif %}
 
@@ -167,13 +174,6 @@
 
 
         <div class="post-top-comments">
-            <div class="post-top-comments-title">Top comments</div>
-            <button class="btn comment-toggle"
-                    data-subreddit="{{ post.subreddit }}"
-                    data-post-id="{{ post.id }}"
-                    data-limit="{{ comments_limit }}">
-                Load comments
-            </button>
             <div class="comment-list" data-show-author="false" hidden></div>
         </div>
     </article>
@@ -295,7 +295,7 @@
                 ${post.is_self && selftext ? `<div class="post-selftext">${selftext}</div>` : ''}
                 ${mediaHTML}
                 <div class="post-top-comments">
-                    <div class="post-top-comments-title">Top comments</div>
+                    <div class="post-top-comments-title"></div>
                     <button class="btn comment-toggle" data-subreddit="${post.subreddit}" data-post-id="${post.id}" data-limit="${commentsLimit}">Load comments</button>
                     <div class="comment-list" data-show-author="false" hidden></div>
                 </div>
@@ -405,32 +405,40 @@
         setupTriggerObserver();
     }
     
-    // Mini-nav click handler - smooth scroll
+    // Mini-nav minimap functionality (like VS Code)
     const miniNav = document.getElementById('mini-nav');
     const miniNavItems = document.getElementById('mini-nav-items');
-    if (miniNav && miniNavItems) {
-        miniNav.addEventListener('click', (e) => {
-            const item = e.target.closest('.mini-nav-item');
-            if (item) {
-                e.preventDefault();
-                const postId = item.getAttribute('href').substring(1);
-                const post = document.getElementById(postId);
-                if (post) {
-                    post.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }
-        });
+    const miniNavViewport = document.getElementById('mini-nav-viewport');
+    
+    if (miniNav && miniNavItems && miniNavViewport) {
+        let isDraggingViewport = false;
+        let dragStartY = 0;
+        let dragStartScroll = 0;
         
-        // Sync mini-nav scroll with page scroll - smooth active-based scrolling
-        let ticking = false;
-        let targetScrollTop = 0;
-        let currentScrollTop = 0;
-        
-        function syncMiniNavScroll() {
-            const posts = document.querySelectorAll('.post');
-            if (posts.length === 0) return;
+        // Update viewport indicator position and size
+        function updateViewportIndicator() {
+            const maxPageScroll = document.documentElement.scrollHeight - window.innerHeight;
+            const currentPageScroll = window.pageYOffset || document.documentElement.scrollTop;
+            const scrollRatio = maxPageScroll > 0 ? currentPageScroll / maxPageScroll : 0;
             
-            // Find closest post to viewport center for active highlighting
+            // Sync mini-nav items scroll
+            const maxNavScroll = miniNavItems.scrollHeight - miniNavItems.clientHeight;
+            miniNavItems.scrollTop = scrollRatio * maxNavScroll;
+            
+            // Calculate viewport indicator size and position
+            const viewportHeight = window.innerHeight;
+            const totalHeight = document.documentElement.scrollHeight;
+            const miniNavHeight = miniNav.clientHeight;
+            
+            const viewportRatio = viewportHeight / totalHeight;
+            const indicatorHeight = Math.max(30, miniNavHeight * viewportRatio);
+            const indicatorTop = scrollRatio * (miniNavHeight - indicatorHeight);
+            
+            miniNavViewport.style.height = indicatorHeight + 'px';
+            miniNavViewport.style.top = indicatorTop + 'px';
+            
+            // Update active post highlighting
+            const posts = document.querySelectorAll('.post');
             const viewportCenter = window.innerHeight / 2;
             let closestPost = null;
             let closestDistance = Infinity;
@@ -451,33 +459,47 @@
                 if (navItem) {
                     miniNav.querySelectorAll('.mini-nav-item').forEach(i => i.classList.remove('active'));
                     navItem.classList.add('active');
-                    
-                    // Calculate target scroll to center the active item
-                    const navItemCenter = navItem.offsetTop + navItem.offsetHeight / 2;
-                    const containerCenter = miniNavItems.clientHeight / 2;
-                    targetScrollTop = Math.max(0, navItemCenter - containerCenter);
                 }
-            }
-            
-            // Smooth interpolation toward target
-            const diff = targetScrollTop - currentScrollTop;
-            if (Math.abs(diff) > 0.5) {
-                currentScrollTop += diff * 0.15;
-                miniNavItems.scrollTop = currentScrollTop;
-                requestAnimationFrame(syncMiniNavScroll);
-            } else {
-                currentScrollTop = targetScrollTop;
-                miniNavItems.scrollTop = currentScrollTop;
-                ticking = false;
             }
         }
         
-        window.addEventListener('scroll', () => {
-            if (!ticking) {
-                ticking = true;
-                requestAnimationFrame(syncMiniNavScroll);
+        // Click on minimap to jump to position
+        miniNav.addEventListener('mousedown', (e) => {
+            if (e.target === miniNavViewport || miniNavViewport.contains(e.target)) {
+                // Start dragging viewport
+                isDraggingViewport = true;
+                dragStartY = e.clientY;
+                dragStartScroll = window.pageYOffset || document.documentElement.scrollTop;
+                e.preventDefault();
+            } else if (e.target === miniNav || e.target === miniNavItems || miniNavItems.contains(e.target)) {
+                // Click to jump
+                const rect = miniNav.getBoundingClientRect();
+                const clickRatio = (e.clientY - rect.top) / rect.height;
+                const maxPageScroll = document.documentElement.scrollHeight - window.innerHeight;
+                const targetScroll = clickRatio * maxPageScroll;
+                window.scrollTo(0, targetScroll);
+                e.preventDefault();
             }
         });
+        
+        // Drag viewport to scroll
+        document.addEventListener('mousemove', (e) => {
+            if (isDraggingViewport) {
+                const deltaY = e.clientY - dragStartY;
+                const miniNavHeight = miniNav.clientHeight;
+                const maxPageScroll = document.documentElement.scrollHeight - window.innerHeight;
+                const scrollDelta = (deltaY / miniNavHeight) * maxPageScroll;
+                window.scrollTo(0, dragStartScroll + scrollDelta);
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('mouseup', () => {
+            isDraggingViewport = false;
+        });
+        
+        window.addEventListener('scroll', updateViewportIndicator, { passive: true });
+        window.addEventListener('resize', updateViewportIndicator, { passive: true });
         
         // Adjust sidebar position based on header visibility
         function updateNavPosition() {
@@ -485,6 +507,8 @@
             if (header) {
                 const isHidden = header.classList.contains('header-hidden');
                 miniNav.style.setProperty('--nav-top', isHidden ? '20px' : '70px');
+                // Update viewport indicator when header position changes
+                setTimeout(updateViewportIndicator, 350);
             }
         }
         
@@ -496,9 +520,8 @@
             updateNavPosition();
         }
         
-        // Initial sync
-        currentScrollTop = miniNavItems.scrollTop;
-        syncMiniNavScroll();
+        // Initial update
+        updateViewportIndicator();
     }
 })();
 </script>

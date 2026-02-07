@@ -32,7 +32,7 @@
     
     {% if post.is_self and post.selftext %}
     <div class="post-selftext" style="border-top: 1px solid var(--border); margin-top: 15px; padding-top: 15px;">
-        {{ post.selftext }}
+        {{ post.selftext | format_content | safe }}
     </div>
     {% endif %}
 
@@ -114,19 +114,14 @@
 {% if comments %}
     {% for comment in comments %}
     <div class="comment" data-depth="{{ comment.depth }}">
-        <div class="comment-expand">
-            {% if comment.replies %}
-            <button class="comment-expand-btn">+</button>
-            {% endif %}
-        </div>
         <div class="comment-content">
             <div class="comment-meta-right">
                 <span class="comment-author">u/{{ comment.author }}</span>
                 <span class="comment-score">⬆️ {{ "{:,}".format(comment.score) }}</span>
             </div>
-            <div class="comment-body">{{ comment.body }}</div>
+            <div class="comment-body">{{ comment.body | format_content | safe }}</div>
             {% if comment.replies %}
-            <div class="comment-replies" hidden>
+            <div class="comment-replies">
                 {% for reply in comment.replies %}
                     {% include 'comment_tree.html' %}
                 {% endfor %}

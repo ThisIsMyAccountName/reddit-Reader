@@ -30,7 +30,6 @@
             <div class="pinned-item" data-sub="{{ sub }}" draggable="true">
                 <span class="drag-handle">⋮⋮</span>
                 <a href="{{ url_for('subreddit', name=sub) }}" class="pinned-item-name">r/{{ sub }}</a>
-                {% if loop.index <= 5 %}<span class="pinned-badge">visible</span>{% endif %}
                 <form method="post" class="pinned-item-remove">
                     <input type="hidden" name="action" value="remove">
                     <input type="hidden" name="sub" value="{{ sub }}">
@@ -64,6 +63,35 @@
         {% else %}
         <p class="text-secondary" style="margin-top: 15px;">No banned subreddits. Use the 🚫 button on posts to ban.</p>
         {% endif %}
+    </div>
+    
+    <div class="settings-section">
+        <h2>🗂️ Sidebar Position</h2>
+        <p class="form-help">Choose where to display the mini navigation sidebar.</p>
+        
+        <form method="post" class="sidebar-form">
+            <input type="hidden" name="action" value="save_sidebar">
+            
+            <div class="form-row">
+                <label>Sidebar Position</label>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="sidebar_position" value="left" {% if sidebar_position == 'left' or not sidebar_position %}checked{% endif %}>
+                        <span>Left</span>
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="sidebar_position" value="right" {% if sidebar_position == 'right' %}checked{% endif %}>
+                        <span>Right</span>
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="sidebar_position" value="off" {% if sidebar_position == 'off' %}checked{% endif %}>
+                        <span>Off</span>
+                    </label>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Save Sidebar Settings</button>
+        </form>
     </div>
     
     <div class="settings-section">

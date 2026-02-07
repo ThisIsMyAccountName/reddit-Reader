@@ -12,11 +12,7 @@
         <div class="header-content">
             <div class="logo-group">
                 <a href="{{ url_for('index') }}" class="logo-icon" title="Go to r/all">📖</a>
-                {% if is_subreddit_page %}
-                <a href="javascript:window.scrollTo({top:0,behavior:'smooth'});setTimeout(()=>location.reload(),300);" class="logo-text" title="Reload">Reddit Reader</a>
-                {% else %}
-                <a href="{{ url_for('index') }}" class="logo-text" title="Go to r/all">Reddit Reader</a>
-                {% endif %}
+                <a href="javascript:window.scrollTo(0,0);location.reload();" class="logo-text" title="Back to top & Refresh" style="cursor: pointer;">Reddit Reader</a>
             </div>
             <form action="{{ url_for('search') }}" method="get" class="search-form">
                 <input type="text" 
@@ -115,52 +111,63 @@
         })();
 
         document.addEventListener('click', async (event) => {
-            const toggle = event.target.closest('.comment-toggle');
-            if (!toggle) return;
+            // Ignore clicks on links, buttons, and interactive elements
+            if (event.target.closest('a, button, input, select, textarea, .comment, .post-media')) {
+                return;
+            }
+            
+            const post = event.target.closest('.post');
+            if (!post) return;
+            
+            event.preventDefault();
+            event.stopPropagation();
 
-            const container = toggle.closest('.post-top-comments');
+            const container = post.querySelector('.post-top-comments');
             const list = container.querySelector('.comment-list');
-            const subreddit = toggle.dataset.subreddit;
-            const postId = toggle.dataset.postId;
-            const limit = toggle.dataset.limit || 3;
+            const isVisible = !list.hasAttribute('hidden');
+            
+            // If comments are visible, hide them
+            if (isVisible) {
+                list.setAttribute('hidden', '');
+                return;
+            }
+            
+            // Otherwise, load more comments
+            const subreddit = post.dataset.subreddit;
+            const postId = post.dataset.postId;
+            const increment = parseInt(post.dataset.increment) || 3;
+            let currentLimit = parseInt(post.dataset.currentLimit) || 0;
 
-            const isLoaded = list.dataset.loaded === 'true';
-            const isHidden = list.hasAttribute('hidden');
+            const newLimit = currentLimit + increment;
+            
+            try {
+                const response = await fetch(`/api/comments?subreddit=${encodeURIComponent(subreddit)}&post_id=${encodeURIComponent(postId)}&limit=${encodeURIComponent(newLimit)}`);
+                const data = await response.json();
+                list.innerHTML = '';
 
-            if (!isLoaded) {
-                toggle.textContent = 'Loading...';
-                try {
-                    const response = await fetch(`/api/comments?subreddit=${encodeURIComponent(subreddit)}&post_id=${encodeURIComponent(postId)}&limit=${encodeURIComponent(limit)}`);
-                    const data = await response.json();
-                    list.innerHTML = '';
-
-                    if (data.comments && data.comments.length) {
-                        const showAuthor = list.dataset.showAuthor !== 'false';
-                        data.comments.forEach((comment) => {
-                            list.appendChild(createCommentElement(comment, 0, showAuthor));
-                        });
-                    } else {
-                        const empty = document.createElement('div');
-                        empty.className = 'text-secondary';
-                        empty.style.fontSize = '13px';
-                        empty.textContent = 'No comments found.';
-                        list.appendChild(empty);
-                    }
-
-                    list.dataset.loaded = 'true';
+                if (data.comments && data.comments.length) {
+                    const showAuthor = list.dataset.showAuthor !== 'false';
+                    data.comments.forEach((comment) => {
+                        list.appendChild(createCommentElement(comment, 0, showAuthor));
+                    });
+                    
+                    // Expand all comment threads after loading
+                    list.querySelectorAll('.comment-replies').forEach(replies => {
+                        replies.removeAttribute('hidden');
+                    });
+                    
                     list.removeAttribute('hidden');
-                    toggle.textContent = 'Hide comments';
-                } catch (err) {
-                    toggle.textContent = 'Load comments';
-                }
-            } else {
-                if (isHidden) {
-                    list.removeAttribute('hidden');
-                    toggle.textContent = 'Hide comments';
+                    post.dataset.currentLimit = data.comments.length;
                 } else {
-                    list.setAttribute('hidden', '');
-                    toggle.textContent = 'Load comments';
+                    const empty = document.createElement('div');
+                    empty.className = 'text-secondary';
+                    empty.style.fontSize = '13px';
+                    empty.textContent = 'No comments found.';
+                    list.appendChild(empty);
+                    list.removeAttribute('hidden');
                 }
+            } catch (err) {
+                console.error('Failed to load comments:', err);
             }
         });
 
@@ -255,19 +262,6 @@
             item.className = depth > 0 ? 'comment compact comment-reply' : 'comment compact';
             item.dataset.depth = depth;
 
-            // Expand button container
-            const expandDiv = document.createElement('div');
-            expandDiv.className = 'comment-expand';
-            
-            if (comment.replies && comment.replies.length > 0) {
-                const expandBtn = document.createElement('button');
-                expandBtn.className = 'comment-expand-btn';
-                expandBtn.textContent = '+';
-                expandDiv.appendChild(expandBtn);
-            }
-            
-            item.appendChild(expandDiv);
-
             // Content container
             const contentDiv = document.createElement('div');
             contentDiv.className = 'comment-content';
@@ -288,7 +282,7 @@
 
             const body = document.createElement('div');
             body.className = 'comment-body';
-            body.textContent = comment.body;
+            body.innerHTML = comment.formatted_body || comment.body;
 
             contentDiv.appendChild(meta);
             contentDiv.appendChild(body);
@@ -352,27 +346,24 @@
 
         // Video player controls
         document.addEventListener('DOMContentLoaded', () => {
-            // Comment expand/collapse (click anywhere on left expand area)
+            // Comment expand/collapse (click anywhere on comment to toggle)
             document.addEventListener('click', (event) => {
-                const expandArea = event.target.closest('.comment-expand');
-                if (!expandArea) return;
+                const comment = event.target.closest('.comment');
+                if (!comment) return;
 
-                const comment = expandArea.closest('.comment');
+                // Don't toggle if clicking on links, buttons, or inputs
+                if (event.target.closest('a, button, input, .media-download-btn')) return;
+
                 const repliesContainer = comment.querySelector(':scope > .comment-content > .comment-replies');
-                const expandBtn = expandArea.querySelector('.comment-expand-btn');
 
-                if (!repliesContainer || !expandBtn) return;
+                if (!repliesContainer) return;
 
                 const isHidden = repliesContainer.hasAttribute('hidden');
                 
                 if (isHidden) {
                     repliesContainer.removeAttribute('hidden');
-                    expandBtn.textContent = '−';
-                    expandBtn.classList.add('expanded');
                 } else {
                     repliesContainer.setAttribute('hidden', '');
-                    expandBtn.textContent = '+';
-                    expandBtn.classList.remove('expanded');
                 }
             });
 
@@ -589,17 +580,42 @@
                     }
                 });
 
-                // Timeline
-                timeline.addEventListener('click', (e) => {
+                // Timeline - click and drag support
+                let isDragging = false;
+                
+                const updateVideoTime = (e) => {
                     const rect = timeline.getBoundingClientRect();
-                    const percent = (e.clientX - rect.left) / rect.width;
+                    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
                     video.currentTime = percent * video.duration;
+                    // Update progress bar immediately while dragging
+                    progress.style.width = (percent * 100) + '%';
+                };
+                
+                timeline.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    updateVideoTime(e);
+                });
+                
+                document.addEventListener('mousemove', (e) => {
+                    if (isDragging) {
+                        updateVideoTime(e);
+                    }
+                });
+                
+                document.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+                
+                timeline.addEventListener('click', (e) => {
+                    updateVideoTime(e);
                 });
 
                 // Update progress
                 video.addEventListener('timeupdate', () => {
-                    const percent = (video.currentTime / video.duration) * 100;
-                    progress.style.width = percent + '%';
+                    if (!isDragging) {
+                        const percent = (video.currentTime / video.duration) * 100;
+                        progress.style.width = percent + '%';
+                    }
                 });
 
                 // Mute button

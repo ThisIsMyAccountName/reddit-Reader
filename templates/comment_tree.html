@@ -1,17 +1,12 @@
 <div class="comment comment-reply" data-depth="{{ reply.depth }}">
-    <div class="comment-expand">
-        {% if reply.replies %}
-        <button class="comment-expand-btn">+</button>
-        {% endif %}
-    </div>
     <div class="comment-content">
         <div class="comment-meta-right">
             <span class="comment-author">u/{{ reply.author }}</span>
             <span class="comment-score">⬆️ {{ "{:,}".format(reply.score) }}</span>
         </div>
-        <div class="comment-body">{{ reply.body }}</div>
+        <div class="comment-body">{{ reply.body | format_content | safe }}</div>
         {% if reply.replies %}
-        <div class="comment-replies" hidden>
+        <div class="comment-replies">
             {% for reply in reply.replies %}
                 {% include 'comment_tree.html' %}
             {% endfor %}
