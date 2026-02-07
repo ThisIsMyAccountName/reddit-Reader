@@ -73,6 +73,7 @@ def inject_user_settings():
     context = {
         "pinned_subs": [],
         "banned_subs": [],
+        "feed_pinned_subs": [],
         "is_subreddit_page": False,
         "default_volume": 5,
         "default_speed": 1.0,
@@ -85,7 +86,7 @@ def inject_user_settings():
     if current_user.is_authenticated:
         conn = get_db()
         row = conn.execute(
-            "SELECT pinned_subs, banned_subs, default_volume, default_speed, sidebar_position "
+            "SELECT pinned_subs, banned_subs, default_volume, default_speed, sidebar_position, feed_pinned_subs "
             "FROM user_settings WHERE user_id = ?",
             (current_user.id,),
         ).fetchone()
@@ -98,6 +99,10 @@ def inject_user_settings():
             if row["banned_subs"]:
                 context["banned_subs"] = [
                     s.strip() for s in row["banned_subs"].split(",") if s.strip()
+                ]
+            if row["feed_pinned_subs"]:
+                context["feed_pinned_subs"] = [
+                    s.strip() for s in row["feed_pinned_subs"].split(",") if s.strip()
                 ]
             context["default_volume"] = row["default_volume"] or 5
             context["default_speed"] = row["default_speed"] or 1.0
@@ -287,6 +292,84 @@ def ban_subreddit(subreddit):
             ON CONFLICT(user_id) DO UPDATE SET banned_subs = excluded.banned_subs
             """,
             (current_user.id, ",".join(banned_subs)),
+        )
+        conn.commit()
+
+    conn.close()
+    return redirect(request.referrer or url_for("index"))
+
+
+@app.route("/pin/<subreddit>", methods=["POST"])
+@login_required
+def pin_subreddit(subreddit):
+    subreddit = subreddit.strip().lower()
+    if not subreddit:
+        return redirect(request.referrer or url_for("index"))
+
+    conn = get_db()
+    row = conn.execute(
+        "SELECT pinned_subs, feed_pinned_subs FROM user_settings WHERE user_id = ?",
+        (current_user.id,),
+    ).fetchone()
+    pinned_subs: list[str] = []
+    feed_pinned_subs: list[str] = []
+    if row and row["pinned_subs"]:
+        pinned_subs = [s.strip() for s in row["pinned_subs"].split(",") if s.strip()]
+    if row and row["feed_pinned_subs"]:
+        feed_pinned_subs = [s.strip() for s in row["feed_pinned_subs"].split(",") if s.strip()]
+
+    if subreddit not in pinned_subs:
+        pinned_subs.append(subreddit)
+        feed_pinned_subs.append(subreddit)
+        conn.execute(
+            """
+            INSERT INTO user_settings (user_id, pinned_subs, feed_pinned_subs)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET 
+                pinned_subs = excluded.pinned_subs,
+                feed_pinned_subs = excluded.feed_pinned_subs
+            """,
+            (current_user.id, ",".join(pinned_subs), ",".join(feed_pinned_subs)),
+        )
+        conn.commit()
+
+    conn.close()
+    return redirect(request.referrer or url_for("index"))
+
+
+@app.route("/unpin/<subreddit>", methods=["POST"])
+@login_required
+def unpin_subreddit(subreddit):
+    subreddit = subreddit.strip().lower()
+    if not subreddit:
+        return redirect(request.referrer or url_for("index"))
+
+    conn = get_db()
+    row = conn.execute(
+        "SELECT pinned_subs, feed_pinned_subs FROM user_settings WHERE user_id = ?",
+        (current_user.id,),
+    ).fetchone()
+    pinned_subs: list[str] = []
+    feed_pinned_subs: list[str] = []
+    if row and row["pinned_subs"]:
+        pinned_subs = [s.strip() for s in row["pinned_subs"].split(",") if s.strip()]
+    if row and row["feed_pinned_subs"]:
+        feed_pinned_subs = [s.strip() for s in row["feed_pinned_subs"].split(",") if s.strip()]
+
+    # Only allow unpinning if it was pinned from feed
+    if subreddit in feed_pinned_subs:
+        if subreddit in pinned_subs:
+            pinned_subs.remove(subreddit)
+        feed_pinned_subs.remove(subreddit)
+        conn.execute(
+            """
+            INSERT INTO user_settings (user_id, pinned_subs, feed_pinned_subs)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET 
+                pinned_subs = excluded.pinned_subs,
+                feed_pinned_subs = excluded.feed_pinned_subs
+            """,
+            (current_user.id, ",".join(pinned_subs), ",".join(feed_pinned_subs)),
         )
         conn.commit()
 

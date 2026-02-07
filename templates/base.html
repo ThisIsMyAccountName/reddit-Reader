@@ -129,6 +129,11 @@
             // If comments are visible, hide them
             if (isVisible) {
                 list.setAttribute('hidden', '');
+                container.classList.remove('has-comments');
+                const loadMoreContainer = container.querySelector('.load-more-comments-container');
+                if (loadMoreContainer) {
+                    loadMoreContainer.setAttribute('hidden', '');
+                }
                 return;
             }
             
@@ -157,7 +162,14 @@
                     });
                     
                     list.removeAttribute('hidden');
+                    container.classList.add('has-comments');
                     post.dataset.currentLimit = data.comments.length;
+                    
+                    // Show load more button
+                    const loadMoreContainer = container.querySelector('.load-more-comments-container');
+                    if (loadMoreContainer) {
+                        loadMoreContainer.removeAttribute('hidden');
+                    }
                 } else {
                     const empty = document.createElement('div');
                     empty.className = 'text-secondary';
@@ -165,33 +177,84 @@
                     empty.textContent = 'No comments found.';
                     list.appendChild(empty);
                     list.removeAttribute('hidden');
+                    container.classList.add('has-comments');
                 }
             } catch (err) {
                 console.error('Failed to load comments:', err);
             }
         });
 
-        // Media download button (left click)
-        document.addEventListener('click', (event) => {
-            const btn = event.target.closest('.media-download-btn');
-            if (btn) {
-                const url = btn.dataset.url;
-                const filename = getFilenameFromUrl(url);
-                triggerDownload(url, filename);
-                return;
+        // Load more comments button
+        document.addEventListener('click', async (event) => {
+            const loadMoreBtn = event.target.closest('.load-more-comments-btn');
+            if (!loadMoreBtn) return;
+            
+            event.stopPropagation();
+            
+            const post = loadMoreBtn.closest('.post');
+            if (!post) return;
+            
+            const container = post.querySelector('.post-top-comments');
+            const list = container.querySelector('.comment-list');
+            const subreddit = post.dataset.subreddit;
+            const postId = post.dataset.postId;
+            const increment = parseInt(post.dataset.increment) || 3;
+            let currentLimit = parseInt(post.dataset.currentLimit) || 0;
+            
+            const newLimit = currentLimit + increment;
+            
+            try {
+                const response = await fetch(`/api/comments?subreddit=${encodeURIComponent(subreddit)}&post_id=${encodeURIComponent(postId)}&limit=${encodeURIComponent(newLimit)}`);
+                const data = await response.json();
+                list.innerHTML = '';
+                
+                if (data.comments && data.comments.length) {
+                    const showAuthor = list.dataset.showAuthor !== 'false';
+                    data.comments.forEach((comment) => {
+                        list.appendChild(createCommentElement(comment, 0, showAuthor));
+                    });
+                    
+                    // Expand all comment threads after loading
+                    list.querySelectorAll('.comment-replies').forEach(replies => {
+                        replies.removeAttribute('hidden');
+                    });
+                    
+                    post.dataset.currentLimit = data.comments.length;
+                    
+                    // Hide load more button if we got fewer comments than requested
+                    if (data.comments.length < newLimit) {
+                        const loadMoreContainer = container.querySelector('.load-more-comments-container');
+                        if (loadMoreContainer) {
+                            loadMoreContainer.setAttribute('hidden', '');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load more comments:', err);
             }
+        });
 
-            // Close menu on any other click
+        // Close context menu on any click
+        document.addEventListener('click', () => {
             closeDownloadMenu();
         });
 
-        // Media download button (right click opens menu)
+        // Right-click on media to open download menu
         document.addEventListener('contextmenu', (event) => {
-            const btn = event.target.closest('.media-download-btn');
-            if (!btn) return;
-
-            event.preventDefault();
-            openDownloadMenu(event.clientX, event.clientY, btn.dataset.url);
+            const video = event.target.closest('.post-video');
+            const image = event.target.closest('.post-image, .gallery-image');
+            
+            let url = null;
+            if (video) {
+                url = video.src || video.currentSrc;
+            } else if (image) {
+                url = image.src || image.currentSrc;
+            }
+            
+            if (url) {
+                event.preventDefault();
+                openDownloadMenu(event.clientX, event.clientY, url);
+            }
         });
 
         function openDownloadMenu(x, y, url) {
@@ -352,7 +415,7 @@
                 if (!comment) return;
 
                 // Don't toggle if clicking on links, buttons, or inputs
-                if (event.target.closest('a, button, input, .media-download-btn')) return;
+                if (event.target.closest('a, button, input')) return;
 
                 const repliesContainer = comment.querySelector(':scope > .comment-content > .comment-replies');
 

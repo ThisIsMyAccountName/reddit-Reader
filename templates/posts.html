@@ -87,8 +87,19 @@
                 {{ post.title }}
             </a>
             <div class="post-meta">
-                <span class="post-meta-item">r/{{ post.subreddit }}</span>
+                <span class="post-meta-item"><a href="{{ url_for('subreddit', name=post.subreddit) }}" class="subreddit-link-inline">r/{{ post.subreddit }}</a></span>
                 <span class="post-meta-actions">
+                    {% if current_user.is_authenticated %}
+                        {% if post.subreddit in feed_pinned_subs %}
+                        <form method="post" action="{{ url_for('unpin_subreddit', subreddit=post.subreddit) }}" class="inline-form">
+                            <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/{{ post.subreddit }}">📍</button>
+                        </form>
+                        {% elif post.subreddit not in pinned_subs %}
+                        <form method="post" action="{{ url_for('pin_subreddit', subreddit=post.subreddit) }}" class="inline-form">
+                            <button type="submit" class="meta-action-btn pin-btn" title="Pin r/{{ post.subreddit }}">📌</button>
+                        </form>
+                        {% endif %}
+                    {% endif %}
                     {% if not post.is_self %}
                     <a href="{{ post.url }}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>
                     {% endif %}
@@ -118,9 +129,6 @@
             {% if post.audio_url %}
             <audio class="video-audio" src="{{ post.audio_url }}" style="display:none;" loop muted></audio>
             {% endif %}
-            <button class="media-download-btn" data-url="{{ post.video_url }}" data-type="video" title="Download" aria-label="Download">
-                ⤓
-            </button>
             <div class="video-controls">
                 <button class="video-btn video-play-pause" aria-label="Play/Pause">⏸</button>
                 <div class="video-timeline">
@@ -151,9 +159,6 @@
                 {% for url in post.gallery_urls %}
                 <div class="gallery-item">
                     <img class="gallery-image" src="{{ url }}" alt="Gallery image" loading="lazy">
-                    <button class="media-download-btn" data-url="{{ url }}" data-type="image" title="Download" aria-label="Download">
-                        ⤓
-                    </button>
                 </div>
                 {% endfor %}
             </div>
@@ -165,9 +170,6 @@
         {% elif post.image_url %}
         <div class="post-media">
             <img class="post-image" src="{{ post.image_url }}" alt="Post image">
-            <button class="media-download-btn" data-url="{{ post.image_url }}" data-type="image" title="Download" aria-label="Download">
-                ⤓
-            </button>
         </div>
         {% endif %}
         
@@ -175,6 +177,9 @@
 
         <div class="post-top-comments">
             <div class="comment-list" data-show-author="false" hidden></div>
+            <div class="load-more-comments-container" hidden style="text-align: center; padding: 10px 0;">
+                <button class="btn load-more-comments-btn">Load 3 more comments</button>
+            </div>
         </div>
     </article>
     {% endfor %}
@@ -208,6 +213,9 @@
     const sort = container.dataset.sort;
     const timeFilter = container.dataset.timeFilter || 'day';
     const commentsLimit = container.dataset.commentsLimit;
+    const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
+    const pinnedSubs = {{ pinned_subs | tojson if pinned_subs else '[]' }};
+    const feedPinnedSubs = {{ feed_pinned_subs | tojson if feed_pinned_subs else '[]' }};
     let after = container.dataset.after;
     let loading = false;
     let noMorePosts = false;
@@ -229,7 +237,6 @@
                 <div class="post-media video-container" data-hls-url="${post.hls_url || ''}" data-audio-url="${post.audio_url || ''}">
                     <video class="post-video" src="${post.video_url}" loop playsinline autoplay muted></video>
                     ${post.audio_url ? `<audio class="video-audio" src="${post.audio_url}" style="display:none;" loop muted></audio>` : ''}
-                    <button class="media-download-btn" data-url="${post.video_url}" data-type="video" title="Download" aria-label="Download">⤓</button>
                     <div class="video-controls">
                         <button class="video-btn video-play-pause" aria-label="Play/Pause">⏸</button>
                         <div class="video-timeline"><div class="video-progress"></div></div>
@@ -256,7 +263,6 @@
             const galleryItems = post.gallery_urls.map(url => `
                 <div class="gallery-item">
                     <img class="gallery-image" src="${url}" alt="Gallery image" loading="lazy">
-                    <button class="media-download-btn" data-url="${url}" data-type="image" title="Download" aria-label="Download">⤓</button>
                 </div>
             `).join('');
             mediaHTML = `
@@ -271,33 +277,46 @@
             mediaHTML = `
                 <div class="post-media">
                     <img class="post-image" src="${post.image_url}" alt="Post image">
-                    <button class="media-download-btn" data-url="${post.image_url}" data-type="image" title="Download" aria-label="Download">⤓</button>
                 </div>`;
         }
         
         const thumbnail = post.thumbnail || post.image_url || '';
         
         return `
-            <article class="post" id="post-${index}" data-post-index="${index}" data-thumbnail="${thumbnail}">
+            <article class="post" id="post-${index}" data-post-index="${index}" data-thumbnail="${thumbnail}" data-subreddit="${post.subreddit}" data-post-id="${post.id}" data-current-limit="0" data-increment="3" style="cursor: pointer;">
                 <h2 class="post-title">
                     <a href="/r/${post.subreddit}/comments/${post.id}">${post.title}</a>
+                    <div class="post-meta">
+                        <span class="post-meta-item"><a href="/r/${post.subreddit}" class="subreddit-link-inline">r/${post.subreddit}</a></span>
+                        <span class="post-meta-actions">
+                            ${isAuthenticated && feedPinnedSubs.includes(post.subreddit) ? `
+                            <form method="post" action="/unpin/${post.subreddit}" class="inline-form">
+                                <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/${post.subreddit}">📍</button>
+                            </form>
+                            ` : isAuthenticated && !pinnedSubs.includes(post.subreddit) ? `
+                            <form method="post" action="/pin/${post.subreddit}" class="inline-form">
+                                <button type="submit" class="meta-action-btn pin-btn" title="Pin r/${post.subreddit}">📌</button>
+                            </form>
+                            ` : ''}
+                            ${!post.is_self ? `<a href="${post.url}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>` : ''}
+                            <a href="${post.permalink}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
+                            ${isAuthenticated && post.subreddit !== subreddit ? `
+                            <form method="post" action="/ban/${post.subreddit}" class="inline-form" onsubmit="return confirm('Ban r/${post.subreddit}? Posts from this subreddit will be hidden.')">
+                                <button type="submit" class="meta-action-btn ban-btn" title="Ban r/${post.subreddit}">🚫</button>
+                            </form>
+                            ` : ''}
+                        </span>
+                    </div>
                 </h2>
-                <div class="post-meta">
-                    <span class="post-meta-item">👤 u/${post.author}</span>
-                    <span class="post-meta-item">📍 r/${post.subreddit}</span>
-                    <span class="post-meta-item">⬆️ ${score}</span>
-                    <span class="post-meta-item">💬 ${numComments}</span>
-                    <span class="post-meta-actions">
-                        ${!post.is_self ? `<a href="${post.url}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>` : ''}
-                        <a href="${post.permalink}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
-                    </span>
-                </div>
                 ${post.is_self && selftext ? `<div class="post-selftext">${selftext}</div>` : ''}
                 ${mediaHTML}
+                
+                
                 <div class="post-top-comments">
-                    <div class="post-top-comments-title"></div>
-                    <button class="btn comment-toggle" data-subreddit="${post.subreddit}" data-post-id="${post.id}" data-limit="${commentsLimit}">Load comments</button>
                     <div class="comment-list" data-show-author="false" hidden></div>
+                    <div class="load-more-comments-container" hidden style="text-align: center; padding: 10px 0;">
+                        <button class="btn load-more-comments-btn">Load 3 more comments</button>
+                    </div>
                 </div>
             </article>
         `;
