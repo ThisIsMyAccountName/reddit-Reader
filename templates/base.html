@@ -47,6 +47,9 @@
         window.defaultVolume = {{ default_volume }} / 100;
         window.defaultSpeed = {{ default_speed }};
         
+        // Track collapsed comment state per post
+        const postCommentStates = new Map();
+        
         // Back to top button
         (function() {
             const backToTop = document.getElementById('back-to-top');
@@ -128,6 +131,19 @@
             
             // If comments are visible, hide them
             if (isVisible) {
+                // Save collapsed state before hiding
+                const collapsedComments = new Set();
+                list.querySelectorAll('.comment').forEach(comment => {
+                    const repliesContainer = comment.querySelector(':scope > .comment-content > .comment-replies');
+                    if (repliesContainer && repliesContainer.hasAttribute('hidden')) {
+                        const commentId = comment.dataset.commentId;
+                        if (commentId) {
+                            collapsedComments.add(commentId);
+                        }
+                    }
+                });
+                postCommentStates.set(postId, collapsedComments);
+                
                 list.setAttribute('hidden', '');
                 container.classList.remove('has-comments');
                 const loadMoreContainer = container.querySelector('.load-more-comments-container');
@@ -160,6 +176,20 @@
                     list.querySelectorAll('.comment-replies').forEach(replies => {
                         replies.removeAttribute('hidden');
                     });
+                    
+                    // Restore collapsed state if exists
+                    const savedState = postCommentStates.get(postId);
+                    if (savedState) {
+                        list.querySelectorAll('.comment').forEach(comment => {
+                            const commentId = comment.dataset.commentId;
+                            if (commentId && savedState.has(commentId)) {
+                                const repliesContainer = comment.querySelector(':scope > .comment-content > .comment-replies');
+                                if (repliesContainer) {
+                                    repliesContainer.setAttribute('hidden', '');
+                                }
+                            }
+                        });
+                    }
                     
                     list.removeAttribute('hidden');
                     container.classList.add('has-comments');
@@ -204,6 +234,20 @@
             const newLimit = currentLimit + increment;
             
             try {
+                // Get saved collapsed state for this post
+                const savedState = postCommentStates.get(postId) || new Set();
+                
+                // Merge with current collapsed state
+                list.querySelectorAll('.comment').forEach(comment => {
+                    const repliesContainer = comment.querySelector(':scope > .comment-content > .comment-replies');
+                    if (repliesContainer && repliesContainer.hasAttribute('hidden')) {
+                        const commentId = comment.dataset.commentId;
+                        if (commentId) {
+                            savedState.add(commentId);
+                        }
+                    }
+                });
+                
                 const response = await fetch(`/api/comments?subreddit=${encodeURIComponent(subreddit)}&post_id=${encodeURIComponent(postId)}&limit=${encodeURIComponent(newLimit)}`);
                 const data = await response.json();
                 list.innerHTML = '';
@@ -218,6 +262,20 @@
                     list.querySelectorAll('.comment-replies').forEach(replies => {
                         replies.removeAttribute('hidden');
                     });
+                    
+                    // Restore collapsed state
+                    list.querySelectorAll('.comment').forEach(comment => {
+                        const commentId = comment.dataset.commentId;
+                        if (commentId && savedState.has(commentId)) {
+                            const repliesContainer = comment.querySelector(':scope > .comment-content > .comment-replies');
+                            if (repliesContainer) {
+                                repliesContainer.setAttribute('hidden', '');
+                            }
+                        }
+                    });
+                    
+                    // Update saved state
+                    postCommentStates.set(postId, savedState);
                     
                     post.dataset.currentLimit = data.comments.length;
                     
@@ -324,6 +382,7 @@
             const item = document.createElement('div');
             item.className = depth > 0 ? 'comment compact comment-reply' : 'comment compact';
             item.dataset.depth = depth;
+            item.dataset.commentId = comment.id || '';
 
             // Content container
             const contentDiv = document.createElement('div');

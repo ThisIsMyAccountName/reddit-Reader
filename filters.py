@@ -26,12 +26,15 @@ def format_content(text: str) -> str:
 
     text = re.sub(r"!\[gif\]\(giphy\|([^)]+)\)", _replace_giphy, text)
 
-    # Reddit images: ![img](url)
-    text = re.sub(
-        r"!\[img\]\(([^)]+)\)",
-        r'<img src="\1" alt="Image" style="max-width:100%;border-radius:4px;margin:10px 0;" loading="lazy">',
-        text
-    )
+    # Reddit images: ![img](url) - unescape the URL to handle &amp; properly
+    def _replace_image(match: re.Match) -> str:
+        url = html.unescape(match.group(1))
+        return (
+            f'<img src="{url}" alt="Image" '
+            'style="max-width:100%;border-radius:4px;margin:10px 0;" loading="lazy">'
+        )
+    
+    text = re.sub(r"!\[img\]\(([^)]+)\)", _replace_image, text)
 
     # Process lines for blockquotes and other formatting
     lines = text.split("\n")
@@ -97,10 +100,15 @@ def _apply_inline_formatting(text: str) -> str:
         text
     )
     
-    # Links: [text](url)
+    # Links: [text](url) - unescape the URL to handle &amp; properly
+    def _replace_link(match: re.Match) -> str:
+        link_text = match.group(1)
+        url = html.unescape(match.group(2))
+        return f'<a href="{url}" target="_blank" style="color:#4a9eff;">{link_text}</a>'
+    
     text = re.sub(
         r"\[([^\]]+)\]\(([^)]+)\)",
-        r'<a href="\2" target="_blank" style="color:#4a9eff;">\1</a>',
+        _replace_link,
         text
     )
     
