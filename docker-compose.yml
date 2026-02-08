@@ -9,17 +9,18 @@ services:
     ports:
       - "0.0.0.0:12345:5000"
     volumes:
-      - reddit-cache:/app/.cache
+      - reddit-data:/data
     environment:
       - FLASK_APP=app.py
       - FLASK_ENV=production
       - FLASK_DEBUG=0
+      - DATABASE_PATH=/data/users.db
     restart: always
     networks:
       - reddit-network
 
 volumes:
-  reddit-cache:
+  reddit-data:
     driver: local
 
 networks:
