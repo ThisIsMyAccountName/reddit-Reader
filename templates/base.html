@@ -129,6 +129,9 @@
             const list = container.querySelector('.comment-list');
             const isVisible = !list.hasAttribute('hidden');
             
+            const subreddit = post.dataset.subreddit;
+            const postId = post.dataset.postId;
+            
             // If comments are visible, hide them
             if (isVisible) {
                 // Save collapsed state before hiding
@@ -154,12 +157,22 @@
             }
             
             // Otherwise, load more comments
-            const subreddit = post.dataset.subreddit;
-            const postId = post.dataset.postId;
             const increment = parseInt(post.dataset.increment) || 3;
             let currentLimit = parseInt(post.dataset.currentLimit) || 0;
 
-            const newLimit = currentLimit + increment;
+            // If comments were already loaded, just show them again
+            if (currentLimit > 0) {
+                list.removeAttribute('hidden');
+                container.classList.add('has-comments');
+                const loadMoreContainer = container.querySelector('.load-more-comments-container');
+                if (loadMoreContainer) {
+                    loadMoreContainer.removeAttribute('hidden');
+                }
+                return;
+            }
+
+            // First time loading comments
+            const newLimit = increment;
             
             try {
                 const response = await fetch(`/api/comments?subreddit=${encodeURIComponent(subreddit)}&post_id=${encodeURIComponent(postId)}&limit=${encodeURIComponent(newLimit)}`);
