@@ -439,6 +439,90 @@
             });
         }
         
+        // Global Video Manager to ensure only one video plays at a time (the most visible one)
+        const VideoManager = {
+            videos: new Map(), // videoContainer -> intersectionRatio
+            observer: null,
+            
+            init() {
+                if (this.observer) return;
+                this.observer = new IntersectionObserver(this.handleIntersect.bind(this), {
+                    threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+                });
+            },
+            
+            register(container) {
+                this.init();
+                this.observer.observe(container);
+                this.videos.set(container, 0);
+            },
+            
+            handleIntersect(entries) {
+                entries.forEach(entry => {
+                    this.videos.set(entry.target, entry.intersectionRatio);
+                });
+                this.updatePlayback();
+            },
+            
+            updatePlayback() {
+                let bestContainer = null;
+                let maxRatio = 0;
+                
+                for (const [container, ratio] of this.videos.entries()) {
+                    if (ratio > maxRatio) {
+                        maxRatio = ratio;
+                        bestContainer = container;
+                    }
+                }
+                
+                // Only play if visibility is significant (e.g. > 40%)
+                if (bestContainer && maxRatio > 0.4) {
+                    this.playOnly(bestContainer);
+                } else {
+                    this.pauseAll();
+                }
+            },
+            
+            playOnly(targetContainer) {
+                for (const [container] of this.videos.entries()) {
+                    const video = container.querySelector('.post-video');
+                    const audio = container.querySelector('.video-audio');
+                    const playBtn = container.querySelector('.video-play-pause');
+                    
+                    if (container === targetContainer) {
+                        if (video.paused) {
+                            video.play().catch(() => {});
+                            if (audio && !audio.muted && audio.volume > 0) {
+                                audio.currentTime = video.currentTime;
+                                audio.play().catch(() => {});
+                            }
+                            if (playBtn) playBtn.textContent = '⏸';
+                        }
+                    } else {
+                        if (!video.paused) {
+                            video.pause();
+                            if (audio) audio.pause();
+                            if (playBtn) playBtn.textContent = '▶';
+                        }
+                    }
+                }
+            },
+            
+            pauseAll() {
+                for (const [container] of this.videos.entries()) {
+                    const video = container.querySelector('.post-video');
+                    const audio = container.querySelector('.video-audio');
+                    const playBtn = container.querySelector('.video-play-pause');
+                    
+                    if (!video.paused) {
+                        video.pause();
+                        if (audio) audio.pause();
+                        if (playBtn) playBtn.textContent = '▶';
+                    }
+                }
+            }
+        };
+
         // Video controls initialization function
         function initVideoControls(rootElement) {
             rootElement.querySelectorAll('.video-container').forEach(container => {
@@ -533,20 +617,7 @@
                 // Play/Pause
                 playPauseBtn.addEventListener('click', () => {
                     if (video.paused) {
-                        // Pause all other videos
-                        document.querySelectorAll('.post-video').forEach(v => {
-                            if (v !== video) {
-                                v.pause();
-                                const vAudio = v.closest('.video-container').querySelector('.video-audio');
-                                if (vAudio) vAudio.pause();
-                                v.closest('.video-container').querySelector('.video-play-pause').textContent = '▶';
-                            }
-                        });
-                        video.play();
-                        if (audio && audio.paused && audio.volume > 0) {
-                            audio.play().catch(err => console.warn('Audio play failed:', err));
-                        }
-                        playPauseBtn.textContent = '⏸';
+                        VideoManager.playOnly(container);
                     } else {
                         video.pause();
                         if (audio) audio.pause();
@@ -722,43 +793,8 @@
                     }
                 }, { passive: false });
 
-                // Intersection Observer - auto play/pause based on visibility
-                const observer = new IntersectionObserver((entries) => {
-                    entries.forEach(entry => {
-                        if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
-                            // Video is 70%+ visible - play it
-                            if (video.paused) {
-                                video.play().catch(() => {});
-                                if (audio && !audio.muted && audio.volume > 0) {
-                                    audio.currentTime = video.currentTime;
-                                    audio.play().catch(() => {});
-                                }
-                                playPauseBtn.textContent = '⏸';
-                            }
-                        } else {
-                            // Video is less than 70% visible - pause and mute it
-                            if (!video.paused) {
-                                video.pause();
-                                if (audio) audio.pause();
-                                playPauseBtn.textContent = '▶';
-                            }
-                            // Auto-mute when scrolled out of view
-                            video.muted = true;
-                            video.volume = 0;
-                            if (audio) {
-                                audio.muted = true;
-                                audio.volume = 0;
-                            }
-                            volumeSlider.value = 0;
-                            muteBtn.textContent = '🔇';
-                            firstClick = true; // Reset so next click unmutes at 5%
-                        }
-                    });
-                }, {
-                    threshold: [0.7] // Trigger when 70% visibility changes
-                });
-                
-                observer.observe(container);
+                // Register with global manager for auto-play logic
+                VideoManager.register(container);
             });
         }
     </script>

@@ -1675,84 +1675,59 @@ body {
 /* Optimized Responsive Header */
 @media (max-width: 768px) {
     .header-content {
-        flex-direction: row; /* Keep row layout */
         flex-wrap: wrap;
-        width: 100%;
-        position: relative; /* Context for absolute dropdowns */
+        gap: 10px;
+        padding-bottom: 10px;
     }
 
-    /* Logo stays on left */
     .logo-group {
-        flex-shrink: 0;
-    }
-
-    /* Show mobile buttons */
-    .mobile-actions {
-        display: flex;
-    }
-    
-    .mobile-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    /* Hide search and auth by default on mobile */
-    .search-form {
-        display: none;
-        width: 100%;
-        padding: 10px 0;
-        order: 3; /* Force to new line if shown inline, or absolute */
-        max-width: none;
-    }
-    
-    .search-form.active {
-        display: block;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: var(--bg-secondary);
-        padding: 10px 20px;
-        border-bottom: 1px solid var(--border);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        z-index: 99;
+        order: 1;
     }
 
     .header-auth {
-        display: none;
-        width: 100%;
-        order: 4;
+        order: 2;
     }
 
-    .header-auth.active {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start; /* Left align items in dropdown */
-        position: absolute;
-        top: 100%;
-        right: 0;
-        width: 200px; /* Dropdown width */
-        background: var(--bg-secondary);
-        border: 1px solid var(--border);
-        border-top: none;
-        border-radius: 0 0 6px 6px;
-        padding: 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        gap: 10px;
-        z-index: 100;
+    .mobile-actions {
+        display: none !important;
+    }
+
+    .search-form {
+        display: block !important;
+        order: 3;
+        width: 100%; /* Full width on second line */
+        max-width: none; 
+        margin: 0;
     }
     
+    .search-form.active {
+        position: static;
+        box-shadow: none;
+        border: none;
+        padding: 0;
+    }
+    
+    .header-auth.active {
+        position: static;
+        width: auto;
+        box-shadow: none;
+        border: none;
+        background: transparent;
+        display: flex;
+        flex-direction: row;
+        padding: 0;
+    }
+    
+    /* Reset auth items to match PC layout */
     .header-auth.active .btn {
-        width: 100%;
-        text-align: left;
+        width: auto;
+        text-align: center;
     }
     
     .header-auth.active .header-user {
-        padding: 5px;
-        border-bottom: 1px solid var(--border);
-        width: 100%;
-        margin-bottom: 5px;
+        border: none;
+        width: auto;
+        margin: 0;
     }
 }
 
