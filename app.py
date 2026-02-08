@@ -5,6 +5,7 @@ A minimal dark-mode web interface for browsing Reddit.
 
 import os
 import time
+import copy
 from datetime import timedelta
 
 from flask import (
@@ -482,33 +483,49 @@ def search():
 
 @app.route("/api/comments")
 def api_comments():
-    sub = request.args.get("subreddit", "").strip()
-    post_id = request.args.get("post_id", "").strip()
-    limit = int(request.args.get("limit", 200))
+    try:
+        sub = request.args.get("subreddit", "").strip()
+        post_id = request.args.get("post_id", "").strip()
+        limit = int(request.args.get("limit", 200))
 
-    if not sub or not post_id:
-        return jsonify({"error": "Missing subreddit or post_id"}), 400
+        if not sub or not post_id:
+            return jsonify({"error": "Missing subreddit or post_id"}), 400
 
-    fetch_limit = max(limit, config.TOP_COMMENTS_FETCH_LIMIT)
-    cache_key = (sub, post_id, fetch_limit)
-    comments_data = get_cached(comment_cache, "top_comments", cache_key, config.COMMENTS_CACHE_TTL)
-    if comments_data is None:
-        data = reader.fetch_post_comments(sub, post_id, limit=fetch_limit)
-        comments_data = reader.parse_comments(data) if data else []
-        set_cache(comment_cache, "top_comments", cache_key, comments_data)
-        time.sleep(config.RATE_LIMIT_DELAY)
+        fetch_limit = max(limit, config.TOP_COMMENTS_FETCH_LIMIT)
+        cache_key = (sub, post_id, fetch_limit)
+        comments_data = get_cached(comment_cache, "top_comments", cache_key, config.COMMENTS_CACHE_TTL)
+        if comments_data is None:
+            data = reader.fetch_post_comments(sub, post_id, limit=fetch_limit)
+            comments_data = reader.parse_comments(data) if data else []
+            set_cache(comment_cache, "top_comments", cache_key, comments_data)
+            time.sleep(config.RATE_LIMIT_DELAY)
 
-    # Add formatted body to each comment and reply
-    def add_formatted_body(comment):
-        from filters import format_content
-        comment['formatted_body'] = format_content(comment.get('body', ''))
-        if 'replies' in comment and comment['replies']:
-            for reply in comment['replies']:
-                add_formatted_body(reply)
-        return comment
-    
-    formatted_comments = [add_formatted_body(c.copy()) for c in comments_data[:limit]]
-    return jsonify({"comments": formatted_comments})
+        # Add formatted body to each comment and reply
+        def add_formatted_body(comment):
+            from filters import format_content
+            # Ensure comment is a dict
+            if not isinstance(comment, dict):
+                return comment
+                
+            comment['formatted_body'] = format_content(comment.get('body', ''))
+            
+            # Recursive processing
+            if 'replies' in comment and isinstance(comment['replies'], list):
+                # Create a new list for replies to avoid mutating the original
+                comment['replies'] = [add_formatted_body(reply) for reply in comment['replies']]
+            
+            return comment
+        
+        # Use deepcopy to avoid mutating the cached data
+        # Only process the number of comments requested
+        comments_subset = copy.deepcopy(comments_data[:limit]) if comments_data else []
+        formatted_comments = [add_formatted_body(c) for c in comments_subset]
+        
+        return jsonify({"comments": formatted_comments})
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/posts")

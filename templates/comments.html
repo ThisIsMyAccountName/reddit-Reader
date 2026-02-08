@@ -3,6 +3,7 @@
 {% block title %}{{ post.title }} - Reddit Reader{% endblock %}
 
 {% block content %}
+<div class="main-content" style="margin: 0 auto;">
 <div style="margin-bottom: 20px;">
     <a href="{{ url_for('subreddit', name=post.subreddit) }}" class="btn">
         ← Back to r/{{ post.subreddit }}
@@ -30,12 +31,6 @@
         </span>
     </div>
     
-    {% if post.is_self and post.selftext %}
-    <div class="post-selftext" style="border-top: 1px solid var(--border); margin-top: 15px; padding-top: 15px;">
-        {{ post.selftext | format_content | safe }}
-    </div>
-    {% endif %}
-
     {% if post.is_video and (post.hls_url or post.video_url) %}
     <div class="post-media video-container" style="margin-top: 15px;" data-hls-url="{{ post.hls_url }}" data-audio-url="{{ post.audio_url }}">
         <video class="post-video" src="{{ post.video_url }}" loop playsinline autoplay muted></video>
@@ -85,6 +80,12 @@
         <img class="post-image" src="{{ post.image_url }}" alt="Post image">
     </div>
     {% endif %}
+
+    {% if post.selftext %}
+    <div class="post-selftext" style="border-top: 1px solid var(--border); margin-top: 15px; padding-top: 15px;">
+        {{ post.selftext | format_content | safe }}
+    </div>
+    {% endif %}
     
     <div class="post-actions">
         {% if not post.is_self %}
@@ -126,4 +127,5 @@
         <p>No comments yet</p>
     </div>
 {% endif %}
+</div>
 {% endblock %}

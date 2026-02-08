@@ -76,6 +76,7 @@
     {% for post in posts %}
     <article class="post" id="post-{{ loop.index }}" 
              data-post-index="{{ loop.index }}" 
+             data-post-id="{{ post.id }}"
              data-thumbnail="{{ post.thumbnail or post.image_url or '' }}"
              data-subreddit="{{ post.subreddit }}"
              data-post-id="{{ post.id }}"
@@ -113,16 +114,6 @@
             </div>
         </h2>
         
-        {% if post.is_self and post.selftext %}
-        <div class="post-selftext">
-            {% if not post.thumbnail and not post.image_url %}
-                {{ post.selftext | format_content | safe }}
-            {% else %}
-                {{ post.selftext[:300] | format_content | safe }}{% if post.selftext|length > 300 %}...{% endif %}
-            {% endif %}
-        </div>
-        {% endif %}
-
         {% if post.is_video and (post.hls_url or post.video_url) %}
         <div class="post-media video-container" data-hls-url="{{ post.hls_url }}" data-audio-url="{{ post.audio_url }}">
             <video class="post-video" src="{{ post.video_url }}" loop playsinline autoplay muted></video>
@@ -172,10 +163,16 @@
             <img class="post-image" src="{{ post.image_url }}" alt="Post image">
         </div>
         {% endif %}
+
+        {% if post.selftext %}
+        <div class="post-text-content">
+            {{ post.selftext | format_content | safe }}
+        </div>
+        {% endif %}
         
 
 
-        <div class="post-top-comments">
+        <div class="post-top-comments" hidden>
             <div class="comment-list" data-show-author="false" hidden></div>
             <div class="load-more-comments-container" hidden style="text-align: center; padding: 10px 0;">
                 <button class="btn load-more-comments-btn">Load 3 more comments</button>
@@ -226,7 +223,16 @@
     
     // Create post HTML from post data
     function createPostHTML(post, index) {
-        const selftext = post.selftext ? post.selftext.substring(0, 300) + (post.selftext.length > 300 ? '...' : '') : '';
+        // Simple HTML escape and newline to br
+        const selftextRaw = post.selftext || '';
+        const selftext = selftextRaw
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;")
+            .replace(/\n/g, "<br>");
+            
         const score = post.score.toLocaleString();
         const numComments = post.num_comments.toLocaleString();
         
@@ -308,11 +314,13 @@
                         </span>
                     </div>
                 </h2>
-                ${post.is_self && selftext ? `<div class="post-selftext">${selftext}</div>` : ''}
+                
                 ${mediaHTML}
                 
+                ${selftext ? `<div class="post-text-content">${selftext}</div>` : ''}
                 
-                <div class="post-top-comments">
+                
+                <div class="post-top-comments" hidden>
                     <div class="comment-list" data-show-author="false" hidden></div>
                     <div class="load-more-comments-container" hidden style="text-align: center; padding: 10px 0;">
                         <button class="btn load-more-comments-btn">Load 3 more comments</button>
@@ -322,6 +330,152 @@
         `;
     }
     
+
+    // Create comment HTML
+    function createCommentHTML(comment) {
+        let repliesHTML = '';
+        if (comment.replies && comment.replies.length > 0) {
+            repliesHTML = `
+                <div class="comment-replies">
+                    ${comment.replies.map(reply => createCommentHTML(reply)).join('')}
+                </div>
+            `;
+        }
+        
+        // Use regular comment classes to inherit correct styling (blue border, etc.)
+        // Added 'comment-reply' class if it's a child (detected by lack of depth property or handle externally? 
+        // Actually, the recursion calls createCommentHTML again. 
+        // In the CSS, .comment has the border. .comment-reply just adds margins/nesting.
+        // But the previous implementation had manual inline styles preventing the border.
+        
+        // We'll mimic the structure of comment_tree.html
+        return `
+            <div class="comment ${comment.depth > 0 ? 'comment-reply' : ''}" data-depth="${comment.depth || 0}">
+                <div class="comment-content">
+                    <div class="comment-meta-right">
+                        <span class="comment-author">u/${comment.author}</span>
+                        <span class="comment-score">⬆️ ${comment.score.toLocaleString()}</span>
+                    </div>
+                    <div class="comment-body">${comment.formatted_body || comment.body}</div>
+                    ${repliesHTML}
+                </div>
+            </div>
+        `;
+    }
+
+    // Load top comments for a post
+    async function loadTopComments(postElement) {
+        const subreddit = postElement.dataset.subreddit;
+        const postId = postElement.dataset.postId;
+        
+        const commentsContainer = postElement.querySelector('.post-top-comments');
+        const listContainer = commentsContainer.querySelector('.comment-list');
+        const loadMoreContainer = commentsContainer.querySelector('.load-more-comments-container');
+        
+        if (postElement.dataset.commentsLoaded === 'true') {
+             // Toggle visibility if already loaded?
+            return;
+        }
+
+        try {
+            // Find post ID from link if not in dataset
+            let pid = postId;
+            if (!pid) {
+                const link = postElement.querySelector('.post-title a');
+                if (link) {
+                    // /r/sub/comments/ID/title
+                    const parts = link.getAttribute('href').split('/comments/');
+                    if (parts.length > 1) {
+                        pid = parts[1].split('/')[0];
+                    }
+                }
+            }
+            
+            if (!pid) return;
+
+            // Show loading indicator
+            listContainer.innerHTML = '<div class="loading-comments"><div class="spinner"></div></div>';
+            listContainer.hidden = false;
+            commentsContainer.hidden = false;
+
+            const response = await fetch(`/api/comments?subreddit=${encodeURIComponent(subreddit)}&post_id=${pid}&limit=3`);
+            const data = await response.json();
+            
+            if (data.comments && data.comments.length > 0) {
+                listContainer.innerHTML = data.comments.map(createCommentHTML).join('');
+                
+                // Show view all link instead of load more
+                loadMoreContainer.innerHTML = `
+                    <a href="/r/${subreddit}/comments/${pid}" class="btn btn-secondary btn-small" style="width: 100%;">View all comments</a>
+                `;
+                loadMoreContainer.hidden = false;
+                
+                postElement.dataset.commentsLoaded = 'true';
+            } else {
+                listContainer.innerHTML = '<div class="loading-comments">No comments yet.</div>';
+            }
+        } catch (err) {
+            console.error('Error loading comments:', err);
+            listContainer.innerHTML = '<div class="loading-comments" style="color: #ff5555;">Failed to load comments</div>';
+        }
+    }
+
+    // Post click handler for expansion
+    container.addEventListener('click', (e) => {
+        const post = e.target.closest('.post');
+        if (!post) return;
+        
+        // Ignore clicks on interactive elements and comments
+        if (e.target.closest('a, button, video, audio, input, select, .video-controls, .gallery-nav, .search-form, .comment')) {
+            return;
+        }
+        
+        const textContent = post.querySelector('.post-text-content');
+        const commentsContainer = post.querySelector('.post-top-comments');
+
+        // Check if user clicked on the text content
+        const clickedText = e.target.closest('.post-text-content');
+        
+        // If clicking on already expanded text, do not collapse.
+        if (clickedText && clickedText.classList.contains('expanded')) {
+            return;
+        }
+        
+        // Determine intended state based on current state
+        // If we have text, toggle it.
+        // If text expands -> Show comments
+        // If text collapses -> Hide comments? User said "clicking again closes it".
+        
+        let isExpanding = true;
+        
+        if (textContent) {
+            // If already expanded, we are collapsing
+            if (textContent.classList.contains('expanded')) {
+                isExpanding = false;
+            }
+            textContent.classList.toggle('expanded');
+        } else {
+            // No text, toggle comments directly
+            // If comments visible, we are collapsing
+            if (commentsContainer && !commentsContainer.hidden) {
+                isExpanding = false;
+            }
+        }
+        
+        // Sync comments visibility
+        if (commentsContainer) {
+            if (isExpanding) {
+                if (post.dataset.commentsLoaded !== 'true') {
+                    loadTopComments(post);
+                } else {
+                    commentsContainer.hidden = false;
+                }
+            } else {
+                commentsContainer.hidden = true;
+            }
+        }
+    });
+
     // Initialize video controls for newly added posts
     function initVideoControls(container) {
         // Trigger DOMContentLoaded-like initialization for new videos

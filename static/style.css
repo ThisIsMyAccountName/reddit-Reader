@@ -898,7 +898,7 @@ body {
 }
 
 .comment {
-    background: var(--bg-secondary);
+    background: rgba(255, 255, 255, 0.03);
     border: none;
     border-left: 3px solid var(--accent);
     border-radius: 6px;
@@ -910,15 +910,15 @@ body {
 }
 
 .comment:hover {
-    background: rgba(88, 166, 255, 0.05);
+    background: rgba(88, 166, 255, 0.08);
 }
 
 .comment:not(.comment-reply):nth-of-type(even) {
-    background: rgba(255, 255, 255, 0.015);
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .comment.comment-reply {
-    background: rgba(255, 255, 255, 0.015);
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .comment-reply {
@@ -958,6 +958,26 @@ body {
 }
 
 .comment-author {
+    font-weight: bold;
+    color: var(--accent);
+}
+
+.comment.collapsed .comment-body,
+.comment.collapsed .comment-replies {
+    display: none;
+}
+
+.comment.collapsed {
+    padding-bottom: 5px;
+    opacity: 0.6;
+}
+
+.comment.collapsed .comment-author::after {
+    content: " (collapsed)";
+    font-weight: normal;
+    color: var(--text-secondary);
+    font-size: 0.9em;
+}
     color: var(--accent);
     font-weight: 600;
     max-width: 120px;
@@ -1489,10 +1509,30 @@ body {
     max-width: 200px;
 }
 
-.form-select:focus {
-    outline: none;
-    border-color: var(--accent);
+
+/* Loading Spinner */
+.spinner {
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    border-top: 3px solid var(--accent);
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+    margin: 10px auto;
 }
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-comments {
+    text-align: center;
+    padding: 15px;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
 
 /* Alerts */
 .alert {
@@ -1512,4 +1552,30 @@ body {
     background: rgba(63, 185, 80, 0.15);
     border: 1px solid rgba(63, 185, 80, 0.3);
     color: var(--success);
+}
+
+/* Post Text Preview Styles */
+.post-text-content {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+    
+    /* Collapsed State */
+    max-height: 3em;
+    overflow: hidden;
+    position: relative;
+    mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+}
+
+.post-text-content.expanded {
+    max-height: none;
+    mask-image: none;
+    -webkit-mask-image: none;
+    overflow: visible;
 }

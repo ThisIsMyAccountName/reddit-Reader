@@ -113,197 +113,29 @@
             });
         })();
 
-        document.addEventListener('click', async (event) => {
-            // Ignore clicks on links, buttons, and interactive elements
-            if (event.target.closest('a, button, input, select, textarea, .comment, .post-media')) {
-                return;
-            }
+        /* 
+         * GLOBAL COMMENT COLLAPSING LOGIC
+         * Handles individual comment thread collapsing.
+         */
+        document.addEventListener('click', (event) => {
+            // Check if we clicked a comment (but NOT a link inside it)
+            const comment = event.target.closest('.comment');
+            if (!comment) return;
             
-            const post = event.target.closest('.post');
-            if (!post) return;
-            
-            event.preventDefault();
-            event.stopPropagation();
+            // Ignore if clicking links/buttons inside comment
+            if (event.target.closest('a, button, input, select')) return;
 
-            const container = post.querySelector('.post-top-comments');
-            const list = container.querySelector('.comment-list');
-            const isVisible = !list.hasAttribute('hidden');
-            
-            const subreddit = post.dataset.subreddit;
-            const postId = post.dataset.postId;
-            
-            // If comments are visible, hide them
-            if (isVisible) {
-                // Save collapsed state before hiding
-                const collapsedComments = new Set();
-                list.querySelectorAll('.comment').forEach(comment => {
-                    const repliesContainer = comment.querySelector(':scope > .comment-content > .comment-replies');
-                    if (repliesContainer && repliesContainer.hasAttribute('hidden')) {
-                        const commentId = comment.dataset.commentId;
-                        if (commentId) {
-                            collapsedComments.add(commentId);
-                        }
-                    }
-                });
-                postCommentStates.set(postId, collapsedComments);
-                
-                list.setAttribute('hidden', '');
-                container.classList.remove('has-comments');
-                const loadMoreContainer = container.querySelector('.load-more-comments-container');
-                if (loadMoreContainer) {
-                    loadMoreContainer.setAttribute('hidden', '');
-                }
-                return;
-            }
-            
-            // Otherwise, load more comments
-            const increment = parseInt(post.dataset.increment) || 3;
-            let currentLimit = parseInt(post.dataset.currentLimit) || 0;
-
-            // If comments were already loaded, just show them again
-            if (currentLimit > 0) {
-                list.removeAttribute('hidden');
-                container.classList.add('has-comments');
-                const loadMoreContainer = container.querySelector('.load-more-comments-container');
-                if (loadMoreContainer) {
-                    loadMoreContainer.removeAttribute('hidden');
-                }
-                return;
-            }
-
-            // First time loading comments
-            const newLimit = increment;
-            
-            try {
-                const response = await fetch(`/api/comments?subreddit=${encodeURIComponent(subreddit)}&post_id=${encodeURIComponent(postId)}&limit=${encodeURIComponent(newLimit)}`);
-                const data = await response.json();
-                list.innerHTML = '';
-
-                if (data.comments && data.comments.length) {
-                    const showAuthor = list.dataset.showAuthor !== 'false';
-                    data.comments.forEach((comment) => {
-                        list.appendChild(createCommentElement(comment, 0, showAuthor));
-                    });
-                    
-                    // Expand all comment threads after loading
-                    list.querySelectorAll('.comment-replies').forEach(replies => {
-                        replies.removeAttribute('hidden');
-                    });
-                    
-                    // Restore collapsed state if exists
-                    const savedState = postCommentStates.get(postId);
-                    if (savedState) {
-                        list.querySelectorAll('.comment').forEach(comment => {
-                            const commentId = comment.dataset.commentId;
-                            if (commentId && savedState.has(commentId)) {
-                                const repliesContainer = comment.querySelector(':scope > .comment-content > .comment-replies');
-                                if (repliesContainer) {
-                                    repliesContainer.setAttribute('hidden', '');
-                                }
-                            }
-                        });
-                    }
-                    
-                    list.removeAttribute('hidden');
-                    container.classList.add('has-comments');
-                    post.dataset.currentLimit = data.comments.length;
-                    
-                    // Show load more button
-                    const loadMoreContainer = container.querySelector('.load-more-comments-container');
-                    if (loadMoreContainer) {
-                        loadMoreContainer.removeAttribute('hidden');
-                    }
-                } else {
-                    const empty = document.createElement('div');
-                    empty.className = 'text-secondary';
-                    empty.style.fontSize = '13px';
-                    empty.textContent = 'No comments found.';
-                    list.appendChild(empty);
-                    list.removeAttribute('hidden');
-                    container.classList.add('has-comments');
-                }
-            } catch (err) {
-                console.error('Failed to load comments:', err);
-            }
-        });
-
-        // Load more comments button
-        document.addEventListener('click', async (event) => {
-            const loadMoreBtn = event.target.closest('.load-more-comments-btn');
-            if (!loadMoreBtn) return;
-            
+            // Stop propagation to prevent bubbling to post expanders
             event.stopPropagation();
             
-            const post = loadMoreBtn.closest('.post');
-            if (!post) return;
-            
-            const container = post.querySelector('.post-top-comments');
-            const list = container.querySelector('.comment-list');
-            const subreddit = post.dataset.subreddit;
-            const postId = post.dataset.postId;
-            const increment = parseInt(post.dataset.increment) || 3;
-            let currentLimit = parseInt(post.dataset.currentLimit) || 0;
-            
-            const newLimit = currentLimit + increment;
-            
-            try {
-                // Get saved collapsed state for this post
-                const savedState = postCommentStates.get(postId) || new Set();
-                
-                // Merge with current collapsed state
-                list.querySelectorAll('.comment').forEach(comment => {
-                    const repliesContainer = comment.querySelector(':scope > .comment-content > .comment-replies');
-                    if (repliesContainer && repliesContainer.hasAttribute('hidden')) {
-                        const commentId = comment.dataset.commentId;
-                        if (commentId) {
-                            savedState.add(commentId);
-                        }
-                    }
-                });
-                
-                const response = await fetch(`/api/comments?subreddit=${encodeURIComponent(subreddit)}&post_id=${encodeURIComponent(postId)}&limit=${encodeURIComponent(newLimit)}`);
-                const data = await response.json();
-                list.innerHTML = '';
-                
-                if (data.comments && data.comments.length) {
-                    const showAuthor = list.dataset.showAuthor !== 'false';
-                    data.comments.forEach((comment) => {
-                        list.appendChild(createCommentElement(comment, 0, showAuthor));
-                    });
-                    
-                    // Expand all comment threads after loading
-                    list.querySelectorAll('.comment-replies').forEach(replies => {
-                        replies.removeAttribute('hidden');
-                    });
-                    
-                    // Restore collapsed state
-                    list.querySelectorAll('.comment').forEach(comment => {
-                        const commentId = comment.dataset.commentId;
-                        if (commentId && savedState.has(commentId)) {
-                            const repliesContainer = comment.querySelector(':scope > .comment-content > .comment-replies');
-                            if (repliesContainer) {
-                                repliesContainer.setAttribute('hidden', '');
-                            }
-                        }
-                    });
-                    
-                    // Update saved state
-                    postCommentStates.set(postId, savedState);
-                    
-                    post.dataset.currentLimit = data.comments.length;
-                    
-                    // Hide load more button if we got fewer comments than requested
-                    if (data.comments.length < newLimit) {
-                        const loadMoreContainer = container.querySelector('.load-more-comments-container');
-                        if (loadMoreContainer) {
-                            loadMoreContainer.setAttribute('hidden', '');
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error('Failed to load more comments:', err);
-            }
+            // Allow selecting text without collapsing
+            if (window.getSelection().toString().length > 0) return;
+
+            // Toggle collapsed class
+            comment.classList.toggle('collapsed');
         });
+
+
 
         // Close context menu on any click
         document.addEventListener('click', () => {
