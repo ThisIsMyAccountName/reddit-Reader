@@ -27,13 +27,6 @@ from flask_login import (
 from werkzeug.security import check_password_hash
 
 import config
-from cache import (
-    comment_cache,
-    get_cached,
-    post_comments_cache,
-    set_cache,
-    subreddit_cache,
-)
 from filters import register_filters
 from models import User, get_db, get_user_banned_subs, init_db
 from reddit_reader import RedditReader
@@ -394,12 +387,7 @@ def subreddit(name):
     t = request.args.get("t", "day")
     limit = int(request.args.get("limit", config.DEFAULT_POST_LIMIT))
 
-    cache_key = (name, sort, limit, t if sort == "top" else None)
-    data = get_cached(subreddit_cache, "subreddit", cache_key, config.SUBREDDIT_CACHE_TTL)
-    if data is None:
-        data = reader.fetch_subreddit(name, sort=sort, limit=limit, t=t if sort == "top" else None)
-        if data:
-            set_cache(subreddit_cache, "subreddit", cache_key, data)
+    data = reader.fetch_subreddit(name, sort=sort, limit=limit, t=t if sort == "top" else None)
 
     posts = reader.parse_posts(data) if data else []
 
@@ -426,12 +414,7 @@ def subreddit(name):
 
 @app.route("/r/<subreddit>/comments/<post_id>")
 def comments(subreddit, post_id):
-    cache_key = (subreddit, post_id)
-    data = get_cached(post_comments_cache, "post_comments", cache_key, config.COMMENTS_CACHE_TTL)
-    if data is None:
-        data = reader.fetch_post_comments(subreddit, post_id)
-        if data:
-            set_cache(post_comments_cache, "post_comments", cache_key, data)
+    data = reader.fetch_post_comments(subreddit, post_id)
 
     if not data or len(data) < 2:
         return render_template("error.html", message="Could not load comments"), 404
@@ -492,13 +475,9 @@ def api_comments():
             return jsonify({"error": "Missing subreddit or post_id"}), 400
 
         fetch_limit = max(limit, config.TOP_COMMENTS_FETCH_LIMIT)
-        cache_key = (sub, post_id, fetch_limit)
-        comments_data = get_cached(comment_cache, "top_comments", cache_key, config.COMMENTS_CACHE_TTL)
-        if comments_data is None:
-            data = reader.fetch_post_comments(sub, post_id, limit=fetch_limit)
-            comments_data = reader.parse_comments(data) if data else []
-            set_cache(comment_cache, "top_comments", cache_key, comments_data)
-            time.sleep(config.RATE_LIMIT_DELAY)
+        data = reader.fetch_post_comments(sub, post_id, limit=fetch_limit)
+        comments_data = reader.parse_comments(data) if data else []
+        time.sleep(config.RATE_LIMIT_DELAY)
 
         # Add formatted body to each comment and reply
         def add_formatted_body(comment):

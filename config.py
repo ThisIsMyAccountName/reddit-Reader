@@ -15,14 +15,6 @@ DEFAULT_COMMENT_LIMIT = int(os.getenv("DEFAULT_COMMENT_LIMIT", "50"))
 TOP_COMMENTS_PER_POST = int(os.getenv("TOP_COMMENTS_PER_POST", "3"))
 TOP_COMMENTS_FETCH_LIMIT = int(os.getenv("TOP_COMMENTS_FETCH_LIMIT", "50"))
 
-# Cache settings (seconds)
-COMMENTS_CACHE_TTL = int(os.getenv("COMMENTS_CACHE_TTL", "1800"))
-SUBREDDIT_CACHE_TTL = int(os.getenv("SUBREDDIT_CACHE_TTL", "300"))
-
-# Persistent cache
-CACHE_PERSISTENCE = os.getenv("CACHE_PERSISTENCE", "True").lower() == "true"
-CACHE_PATH = os.getenv("CACHE_PATH", ".cache/reddit_reader_cache")
-
 # Simple rate limiting/backoff (seconds)
 RATE_LIMIT_DELAY = float(os.getenv("RATE_LIMIT_DELAY", "0.35"))
 RATE_LIMIT_RETRY_DELAY = float(os.getenv("RATE_LIMIT_RETRY_DELAY", "2.0"))

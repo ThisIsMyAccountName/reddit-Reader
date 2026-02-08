@@ -308,6 +308,8 @@ body {
     font-size: 16px;
     font-weight: 500;
     transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .subreddit-link:hover {
@@ -955,6 +957,12 @@ body {
 .comment-author {
     font-weight: bold;
     color: var(--accent);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: bottom;
 }
 
 .comment.collapsed .comment-body,
@@ -972,13 +980,6 @@ body {
     font-weight: normal;
     color: var(--text-secondary);
     font-size: 0.9em;
-}
-    color: var(--accent);
-    font-weight: 600;
-    max-width: 120px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .comment-score {
@@ -1231,6 +1232,15 @@ body {
     display: flex;
     gap: 6px;
     align-items: center;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE/Edge */
+    padding-bottom: 2px; /* Prevent clipping */
+}
+
+.header-pinned::-webkit-scrollbar {
+    display: none;
 }
 
 .pinned-sub {
@@ -1241,6 +1251,8 @@ body {
     border-radius: 4px;
     font-size: 12px;
     transition: background 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .pinned-sub:hover {
@@ -1574,3 +1586,153 @@ body {
     -webkit-mask-image: none;
     overflow: visible;
 }
+
+/* Mobile Optimizations for Comments */
+@media (max-width: 600px) {
+    /* Stack comment meta on top of body to save horizontal space */
+    .comment-content {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .comment-meta-right {
+        order: -1; /* Move to top */
+        flex-direction: row; /* Horizontal layout */
+        width: 100%;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        min-width: 0;
+    }
+
+    /* Allow full username width since it's on its own line */
+    .comment-author {
+        max-width: none;
+    }
+
+    /* Reduce indentation for deep threads */
+    .comment {
+        padding: 8px 8px 8px 6px; /* Reduced left padding to save space */
+        border-left-width: 1px; /* Thinner border to save space */
+    }
+
+    .comment.compact {
+        padding: 6px 6px 6px 4px;
+    }
+    
+    .comment-replies {
+        margin-top: 4px;
+    }
+}
+
+
+/* Mobile Header Actions */
+.mobile-btn {
+    display: none;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 20px;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.mobile-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--accent);
+}
+
+.mobile-actions {
+    display: none;
+    gap: 5px;
+    margin-left: auto;
+}
+
+/* Optimized Responsive Header */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: row; /* Keep row layout */
+        flex-wrap: wrap;
+        width: 100%;
+        position: relative; /* Context for absolute dropdowns */
+    }
+
+    /* Logo stays on left */
+    .logo-group {
+        flex-shrink: 0;
+    }
+
+    /* Show mobile buttons */
+    .mobile-actions {
+        display: flex;
+    }
+    
+    .mobile-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Hide search and auth by default on mobile */
+    .search-form {
+        display: none;
+        width: 100%;
+        padding: 10px 0;
+        order: 3; /* Force to new line if shown inline, or absolute */
+        max-width: none;
+    }
+    
+    .search-form.active {
+        display: block;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--bg-secondary);
+        padding: 10px 20px;
+        border-bottom: 1px solid var(--border);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 99;
+    }
+
+    .header-auth {
+        display: none;
+        width: 100%;
+        order: 4;
+    }
+
+    .header-auth.active {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start; /* Left align items in dropdown */
+        position: absolute;
+        top: 100%;
+        right: 0;
+        width: 200px; /* Dropdown width */
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-top: none;
+        border-radius: 0 0 6px 6px;
+        padding: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        gap: 10px;
+        z-index: 100;
+    }
+    
+    .header-auth.active .btn {
+        width: 100%;
+        text-align: left;
+    }
+    
+    .header-auth.active .header-user {
+        padding: 5px;
+        border-bottom: 1px solid var(--border);
+        width: 100%;
+        margin-bottom: 5px;
+    }
+}
+

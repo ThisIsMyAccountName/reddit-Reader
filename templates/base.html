@@ -12,19 +12,27 @@
         <div class="header-content">
             <div class="logo-group">
                 <a href="{{ url_for('index') }}" class="logo-icon" title="Go to r/all">📖</a>
-                <a href="javascript:window.scrollTo(0,0);location.reload();" class="logo-text" title="Back to top & Refresh" style="cursor: pointer;">Reddit Reader</a>
+                <a href="{{ url_for('index') }}" class="logo-text" title="Go to r/all">Reddit Reader</a>
             </div>
-            <form action="{{ url_for('search') }}" method="get" class="search-form">
+
+            <div class="mobile-actions">
+                <button class="mobile-btn" id="mobile-search-toggle" title="Search">🔍</button>
+                <button class="mobile-btn" id="mobile-menu-toggle" title="Menu">
+                    {% if current_user.is_authenticated %}👤{% else %}☰{% endif %}
+                </button>
+            </div>
+
+            <form action="{{ url_for('search') }}" method="get" class="search-form" id="header-search-form">
                 <input type="text" 
                        name="q" 
                        class="search-input" 
                        placeholder="Search subreddit..."
                        autocomplete="off">
             </form>
-            <div class="header-auth">
+            <div class="header-auth" id="header-auth-menu">
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('settings') }}" class="btn btn-small btn-icon" title="Settings">⚙️</a>
                     <span class="header-user">👤 {{ current_user.username }}</span>
+                    <a href="{{ url_for('settings') }}" class="btn btn-small btn-icon" title="Settings">⚙️ Settings</a>
                     <a href="{{ url_for('logout') }}" class="btn btn-small">Logout</a>
                 {% else %}
                     <a href="{{ url_for('login') }}" class="btn btn-small">Login</a>
@@ -82,25 +90,35 @@
             let lastScrollY = window.scrollY;
             let ticking = false;
             let scrollUpDistance = 0;
+            let scrollDownDistance = 0;
             const SHOW_HEADER_THRESHOLD = 150; // Pixels to scroll up before showing header
+            const HIDE_HEADER_THRESHOLD = 150; // Pixels to scroll down before hiding header
 
             function updateHeader() {
                 const currentScrollY = window.scrollY;
                 const scrollDelta = currentScrollY - lastScrollY;
                 
-                // Show header at top of page or when scrolling up significantly
+                // Always show at very top
                 if (currentScrollY <= 50) {
                     header.classList.remove('header-hidden');
                     scrollUpDistance = 0;
+                    scrollDownDistance = 0;
                 } 
-                // Hide when scrolling down
+                // Scrolling down
                 else if (scrollDelta > 0) {
-                    header.classList.add('header-hidden');
+                    scrollDownDistance += scrollDelta;
                     scrollUpDistance = 0;
+                    if (scrollDownDistance > HIDE_HEADER_THRESHOLD) {
+                        header.classList.add('header-hidden');
+                        // Close mobile menus when header hides
+                        document.getElementById('header-search-form')?.classList.remove('active');
+                        document.getElementById('header-auth-menu')?.classList.remove('active');
+                    }
                 }
-                // When scrolling up
+                // Scrolling up
                 else if (scrollDelta < 0) {
                     scrollUpDistance -= scrollDelta;
+                    scrollDownDistance = 0;
                     if (scrollUpDistance > SHOW_HEADER_THRESHOLD) {
                         header.classList.remove('header-hidden');
                     }
@@ -121,6 +139,39 @@
             document.addEventListener('mousemove', (e) => {
                 if (e.clientY <= 50) {
                     header.classList.remove('header-hidden');
+                }
+            });
+
+            // Mobile menu toggles
+            const searchToggle = document.getElementById('mobile-search-toggle');
+            const menuToggle = document.getElementById('mobile-menu-toggle');
+            const searchForm = document.getElementById('header-search-form');
+            const authMenu = document.getElementById('header-auth-menu');
+
+            if (searchToggle && searchForm) {
+                searchToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    searchForm.classList.toggle('active');
+                    authMenu?.classList.remove('active');
+                    if (searchForm.classList.contains('active')) {
+                        setTimeout(() => searchForm.querySelector('input')?.focus(), 100);
+                    }
+                });
+            }
+
+            if (menuToggle && authMenu) {
+                menuToggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    authMenu.classList.toggle('active');
+                    searchForm?.classList.remove('active');
+                });
+            }
+
+            // Close menus when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!header.contains(e.target)) {
+                    searchForm?.classList.remove('active');
+                    authMenu?.classList.remove('active');
                 }
             });
         })();

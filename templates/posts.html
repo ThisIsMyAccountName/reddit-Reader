@@ -43,7 +43,6 @@
 </div>
 
 <div class="controls">
-    <span class="text-secondary">Sort by:</span>
     <a href="{{ url_for('subreddit', name=subreddit, sort='hot') }}" 
        class="sort-link {% if sort == 'hot' %}active{% endif %}">🔥 Hot</a>
     <a href="{{ url_for('subreddit', name=subreddit, sort='new') }}" 
