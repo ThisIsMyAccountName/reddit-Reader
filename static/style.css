@@ -975,6 +975,26 @@ body {
     opacity: 0.6;
 }
 
+.comment.collapsed .comment-content {
+    display: flex;
+    align-items: center;
+}
+
+.comment.collapsed .comment-meta-right {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    justify-content: flex-start;
+    gap: 10px;
+    margin: 0;
+    min-width: 0;
+}
+
+.comment.collapsed .comment-author {
+    display: inline;
+    max-width: none;
+}
+
 .comment.collapsed .comment-author::after {
     content: " (collapsed)";
     font-weight: normal;

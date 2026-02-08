@@ -331,25 +331,24 @@
     
 
     // Create comment HTML
-    function createCommentHTML(comment) {
+    function createCommentHTML(comment, collapsedIds = new Set()) {
         let repliesHTML = '';
         if (comment.replies && comment.replies.length > 0) {
             repliesHTML = `
                 <div class="comment-replies">
-                    ${comment.replies.map(reply => createCommentHTML(reply)).join('')}
+                    ${comment.replies.map(reply => createCommentHTML(reply, collapsedIds)).join('')}
                 </div>
             `;
         }
         
+        const isCollapsed = collapsedIds.has(comment.id);
+        const collapsedClass = isCollapsed ? 'collapsed' : '';
+        
         // Use regular comment classes to inherit correct styling (blue border, etc.)
         // Added 'comment-reply' class if it's a child (detected by lack of depth property or handle externally? 
-        // Actually, the recursion calls createCommentHTML again. 
-        // In the CSS, .comment has the border. .comment-reply just adds margins/nesting.
-        // But the previous implementation had manual inline styles preventing the border.
-        
         // We'll mimic the structure of comment_tree.html
         return `
-            <div class="comment ${comment.depth > 0 ? 'comment-reply' : ''}" data-depth="${comment.depth || 0}">
+            <div class="comment ${comment.depth > 0 ? 'comment-reply' : ''} ${collapsedClass}" data-depth="${comment.depth || 0}" data-comment-id="${comment.id || ''}">
                 <div class="comment-content">
                     <div class="comment-meta-right">
                         <span class="comment-author">u/${comment.author}</span>
@@ -363,7 +362,7 @@
     }
 
     // Load top comments for a post
-    async function loadTopComments(postElement) {
+    async function loadTopComments(postElement, limit = 3) {
         const subreddit = postElement.dataset.subreddit;
         const postId = postElement.dataset.postId;
         
@@ -371,8 +370,8 @@
         const listContainer = commentsContainer.querySelector('.comment-list');
         const loadMoreContainer = commentsContainer.querySelector('.load-more-comments-container');
         
-        if (postElement.dataset.commentsLoaded === 'true') {
-             // Toggle visibility if already loaded?
+        // If just expanding and already loaded, do nothing
+        if (limit === 3 && postElement.dataset.commentsLoaded === 'true') {
             return;
         }
 
@@ -391,25 +390,42 @@
             }
             
             if (!pid) return;
+            
+            // Capture existing collapsed state before loading new comments
+            // We only need top-level collapsed IDs, but recursively is fine too
+            const collapsedIds = new Set();
+            if (listContainer) {
+                listContainer.querySelectorAll('.comment.collapsed').forEach(el => {
+                    const id = el.dataset.commentId;
+                    if (id) collapsedIds.add(id);
+                });
+            }
 
-            // Show loading indicator
-            listContainer.innerHTML = '<div class="loading-comments"><div class="spinner"></div></div>';
-            listContainer.hidden = false;
-            commentsContainer.hidden = false;
+            // Show loading indicator only if first load
+            if (limit === 3) {
+                listContainer.innerHTML = '<div class="loading-comments"><div class="spinner"></div></div>';
+                listContainer.hidden = false;
+                commentsContainer.hidden = false;
+            } else {
+                 // Indicate loading in the button?
+                 const btn = loadMoreContainer.querySelector('.load-more-comments-btn');
+                 if (btn) btn.textContent = 'Loading...';
+            }
 
-            const response = await fetch(`/api/comments?subreddit=${encodeURIComponent(subreddit)}&post_id=${pid}&limit=3`);
+            const response = await fetch(`/api/comments?subreddit=${encodeURIComponent(subreddit)}&post_id=${pid}&limit=${limit}`);
             const data = await response.json();
             
             if (data.comments && data.comments.length > 0) {
-                listContainer.innerHTML = data.comments.map(createCommentHTML).join('');
+                listContainer.innerHTML = data.comments.map(c => createCommentHTML(c, collapsedIds)).join('');
                 
-                // Show view all link instead of load more
+                // Update load more button
                 loadMoreContainer.innerHTML = `
-                    <a href="/r/${subreddit}/comments/${pid}" class="btn btn-secondary btn-small" style="width: 100%;">View all comments</a>
+                    <button class="btn btn-secondary btn-small load-more-comments-btn" style="width: 100%;">Load 3 more comments</button>
                 `;
                 loadMoreContainer.hidden = false;
                 
                 postElement.dataset.commentsLoaded = 'true';
+                postElement.dataset.currentLimit = limit;
             } else {
                 listContainer.innerHTML = '<div class="loading-comments">No comments yet.</div>';
             }
@@ -571,6 +587,19 @@
         item.innerHTML = content;
         miniNavItems.appendChild(item);
     }
+    
+    // Handle load more comments button click
+    container.addEventListener('click', (e) => {
+        if (e.target.matches('.load-more-comments-btn')) {
+            e.stopPropagation(); // Prevent post expansion logic
+            const post = e.target.closest('.post');
+            if (post) {
+                const currentLimit = parseInt(post.dataset.currentLimit || 3);
+                const newLimit = currentLimit + 3;
+                loadTopComments(post, newLimit);
+            }
+        }
+    });
     
     // Initial setup
     if (after) {
