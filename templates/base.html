@@ -81,17 +81,29 @@
             const header = document.querySelector('.header');
             let lastScrollY = window.scrollY;
             let ticking = false;
-            
+            let scrollUpDistance = 0;
+            const SHOW_HEADER_THRESHOLD = 150; // Pixels to scroll up before showing header
+
             function updateHeader() {
                 const currentScrollY = window.scrollY;
+                const scrollDelta = currentScrollY - lastScrollY;
                 
-                // Show header at top of page or when scrolling up
-                if (currentScrollY <= 50 || currentScrollY < lastScrollY) {
+                // Show header at top of page or when scrolling up significantly
+                if (currentScrollY <= 50) {
                     header.classList.remove('header-hidden');
+                    scrollUpDistance = 0;
                 } 
                 // Hide when scrolling down
-                else if (currentScrollY > lastScrollY) {
+                else if (scrollDelta > 0) {
                     header.classList.add('header-hidden');
+                    scrollUpDistance = 0;
+                }
+                // When scrolling up
+                else if (scrollDelta < 0) {
+                    scrollUpDistance -= scrollDelta;
+                    if (scrollUpDistance > SHOW_HEADER_THRESHOLD) {
+                        header.classList.remove('header-hidden');
+                    }
                 }
                 
                 lastScrollY = currentScrollY;

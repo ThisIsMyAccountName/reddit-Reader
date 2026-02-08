@@ -900,10 +900,10 @@ body {
 .comment {
     background: rgba(255, 255, 255, 0.03);
     border: none;
-    border-left: 3px solid var(--accent);
+    border-left: 2px solid var(--accent);
     border-radius: 6px;
     padding: 10px 12px;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
     overflow: hidden;
     cursor: pointer;
     transition: background-color 0.2s;
@@ -921,10 +921,6 @@ body {
     background: rgba(255, 255, 255, 0.03);
 }
 
-.comment-reply {
-    margin-left: 10px;
-    margin-top: 8px;
-}
 
 .comment.compact {
     padding: 8px 10px;
