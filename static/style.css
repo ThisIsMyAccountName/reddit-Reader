@@ -611,12 +611,15 @@ body {
     gap: 8px;
     overflow-x: visible;
     overflow-y: visible;
+    align-items: center; /* center items to match preview */
 }
 .gallery-full .gallery-item {
     width: 100%;
+    display: flex;
+    justify-content: center; /* center the image inside each item */
 }
 .gallery-full .gallery-image {
-    width: 100%;
+    width: 50%; /* match preview width */
     max-width: 50%;
     margin: 0 auto;
     height: auto !important; /* ensure not cropped by global rule */

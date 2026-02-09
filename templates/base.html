@@ -834,7 +834,18 @@
                 const target = el.classList && el.classList.contains('post-media') ? (el.querySelector('img') || el.querySelector('video')) : el;
                 if (!target) return;
 
-                const container = target.closest('.post-media') || target.closest('.video-container') || target.parentElement;
+                // Skip attaching resizer/drag handlers for preview elements (we don't want preview drags to resize)
+                if (el.closest && el.closest('.gallery-preview')) return;
+                if (target.closest && target.closest('.gallery-preview')) return;
+
+                // Prefer per-image container for gallery full view so each image resizes independently
+                let container = null;
+                if (target.closest && target.closest('.gallery-full')) {
+                    container = target.closest('.gallery-item') || target.parentElement;
+                }
+                if (!container) {
+                    container = target.closest('.post-media') || target.closest('.video-container') || target.parentElement;
+                }
                 if (!container || container.dataset.resizeInit) return;
                 container.dataset.resizeInit = 'true';
 
@@ -1002,6 +1013,7 @@
         }
 
         // Click handler for gallery preview -> toggle inline expanded gallery
+        // Use capture so we run before container click handlers (which can open comments)
         document.addEventListener('click', (e) => {
             const preview = e.target.closest && e.target.closest('.gallery-preview');
             if (!preview) return;
@@ -1022,18 +1034,43 @@
                 // initialize layout for the full gallery and media resizers
                 initGalleryLayout(post);
                 initMediaResizers(post);
-                // If post has comments container, load them (reuse existing logic)
-                const commentsContainer = post.querySelector('.post-top-comments');
-                if (commentsContainer && post.dataset.commentsLoaded !== 'true') {
-                    // call loadTopComments from posts.js scope: attempt to call global function if present
-                    if (typeof loadTopComments === 'function') {
-                        loadTopComments(post);
-                    }
-                } else if (commentsContainer) {
-                    commentsContainer.hidden = false;
-                }
+                // NOTE: opening the gallery should NOT load or show comments.
             } else {
                 if (full) full.setAttribute('hidden', '');
+            }
+        }, true); // capture
+
+        // Clicking inside the expanded full gallery should collapse it (capture phase to catch clicks even if media stopPropagation)
+        document.addEventListener('click', (e) => {
+            const full = e.target.closest && e.target.closest('.gallery-full');
+            if (!full) return;
+
+            const post = full.closest && full.closest('.post');
+            if (!post || !post.classList.contains('gallery-expanded')) return;
+
+            // Ignore clicks on interactive controls
+            if (e.target.closest && e.target.closest('a, button, input, select, .video-controls, .search-form, .comment')) {
+                return;
+            }
+
+            // Collapse
+            post.classList.remove('gallery-expanded');
+            full.setAttribute('hidden', '');
+            const preview = post.querySelector('.gallery-preview');
+            if (preview) preview.setAttribute('aria-expanded', 'false');
+            e.stopPropagation();
+        }, true); // capture
+
+        // Allow ESC to close any expanded galleries
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' || e.key === 'Esc') {
+                document.querySelectorAll('.post.gallery-expanded').forEach(post => {
+                    post.classList.remove('gallery-expanded');
+                    const full = post.querySelector('.gallery-full');
+                    if (full) full.setAttribute('hidden', '');
+                    const preview = post.querySelector('.gallery-preview');
+                    if (preview) preview.setAttribute('aria-expanded', 'false');
+                });
             }
         });
     </script>
