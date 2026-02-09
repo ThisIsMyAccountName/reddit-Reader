@@ -103,26 +103,3 @@ summary = reader.summarize_comments(comments)  # Not implemented yet
 ## License
 
 MIT License - Feel free to use and modify as needed.
-
-## GitHub
-
-This repository is ready to be published on GitHub.
-
-To initialize a local git repository, commit, and push to a new GitHub repo, run:
-
-```powershell
-git init
-git add .
-git commit -m "Initial commit: Reddit Reader"
-git branch -M main
-git remote add origin https://github.com/<your-username>/<your-repo>.git
-git push -u origin main
-```
-
-If you have the GitHub CLI (`gh`) installed and authenticated, you can create and push a repo automatically from this folder:
-
-```powershell
-gh repo create <your-username>/<your-repo> --public --source=. --remote=origin --push --confirm
-```
-
-Replace `<your-username>` and `<your-repo>` above with your GitHub username and desired repository name.
