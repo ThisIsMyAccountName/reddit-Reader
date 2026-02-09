@@ -893,6 +893,7 @@
                 let startHeight = 0;
                 let naturalW = 0;
                 let naturalH = 0;
+                let availableMaxWidth = null;
 
                 const getNatural = () => {
                     const nw = target.naturalWidth || target.videoWidth || target.clientWidth;
@@ -926,10 +927,22 @@
                         containerHeight: container.style.height,
                         containerOverflow: container.style.overflow
                     };
-                    // Lift caps so user can grow beyond defaults during resize
-                    target.style.maxWidth = 'none';
-                    target.style.maxHeight = 'none';
-                    container.style.overflow = 'visible';
+                    // Compute a stable cap based on the bounding post container (account for padding)
+                    const boundingAncestor = container.closest('.post') || container.closest('.post-detail') || container.closest('.main-content') || document.body;
+                    const bRect = boundingAncestor.getBoundingClientRect();
+                    const bStyle = window.getComputedStyle(boundingAncestor);
+                    const padLeft = parseFloat(bStyle.paddingLeft) || 0;
+                    const padRight = parseFloat(bStyle.paddingRight) || 0;
+                    // Keep a small margin (20px) from the bounding ancestor edges
+                    availableMaxWidth = Math.max(100, Math.round(bRect.width - padLeft - padRight - 20));
+                    // Save current box-sizing and set box-sizing to border-box to avoid parent growth
+                    try {
+                        container.style.boxSizing = 'border-box';
+                        // Lift caps so user can grow up to allowed max during resize
+                        target.style.maxWidth = availableMaxWidth + 'px';
+                        target.style.maxHeight = 'none';
+                        container.style.overflow = 'hidden';
+                    } catch (e) {}
                     document.body.style.cursor = 'nwse-resize';
                 };
 
@@ -944,11 +957,24 @@
                     const nh = nat.nh || naturalH || startHeight;
 
                     // Decide whether user is resizing horizontally or vertically (use dominant axis)
+                    // Use the availableMaxWidth computed at mousedown
+                    const maxAllowedWidth = availableMaxWidth || (container.closest('.post') || document.body).getBoundingClientRect().width - 20;
+
+                    // Compute a max height corresponding to the allowed max width (preserve aspect)
+                    const maxAllowedHeight = (nw && nh && maxAllowedWidth) ? Math.max(50, Math.round(maxAllowedWidth * (nh / nw))) : null;
+
                     if (Math.abs(dy) > Math.abs(dx)) {
                         // Vertical dominant: scale based on natural height to preserve aspect
-                        const desiredHeight = Math.max(50, Math.round(startHeight + dy));
-                        const scale = nh ? desiredHeight / nh : desiredHeight / startHeight;
-                        const newWidth = Math.max(50, Math.round(nw * scale));
+                        let desiredHeight = Math.max(50, Math.round(startHeight + dy));
+                        let scale = nh ? desiredHeight / nh : desiredHeight / startHeight;
+                        let newWidth = Math.max(50, Math.round(nw * scale));
+                        // If width exceeds cap, clamp width and recompute height from capped width
+                        if (newWidth > maxAllowedWidth) {
+                            newWidth = maxAllowedWidth;
+                            scale = nw ? (newWidth / nw) : (desiredHeight / startHeight);
+                            desiredHeight = Math.max(50, Math.round(nh * scale));
+                            if (maxAllowedHeight) desiredHeight = Math.min(desiredHeight, maxAllowedHeight);
+                        }
                         container.style.width = newWidth + 'px';
                         container.style.height = desiredHeight + 'px';
                         // Force the media element to the explicit pixel size so it visually scales
@@ -956,9 +982,14 @@
                         target.style.height = desiredHeight + 'px';
                     } else {
                         // Horizontal dominant: scale based on natural width
-                        const desiredWidth = Math.max(50, Math.round(startWidth + dx));
+                        const desiredWidthRaw = Math.max(50, Math.round(startWidth + dx));
+                        const desiredWidth = Math.min(desiredWidthRaw, maxAllowedWidth);
                         const scale = nw ? desiredWidth / nw : desiredWidth / startWidth;
-                        const newHeight = Math.max(50, Math.round(nh * scale));
+                        let newHeight = Math.max(50, Math.round(nh * scale));
+                        // If width reached cap, also ensure height doesn't exceed maxAllowedHeight
+                        if (desiredWidth >= maxAllowedWidth && maxAllowedHeight) {
+                            newHeight = Math.min(newHeight, maxAllowedHeight);
+                        }
                         container.style.width = desiredWidth + 'px';
                         container.style.height = newHeight + 'px';
                         target.style.width = desiredWidth + 'px';
