@@ -459,7 +459,12 @@
             
             handleIntersect(entries) {
                 entries.forEach(entry => {
+                    // Update visibility ratio
                     this.videos.set(entry.target, entry.intersectionRatio);
+                    // If a container leaves the viewport, clear any manual pause
+                    if (!entry.isIntersecting) {
+                        delete entry.target.dataset.manualPaused;
+                    }
                 });
                 this.updatePlayback();
             },
@@ -477,20 +482,62 @@
                 
                 // Only play if visibility is significant (e.g. > 40%)
                 if (bestContainer && maxRatio > 0.4) {
-                    this.playOnly(bestContainer);
+                    // Called from intersection observer -> this is autoplay-driven
+                    this.playOnly(bestContainer, true);
                 } else {
                     this.pauseAll();
                 }
             },
             
-            playOnly(targetContainer) {
+            playOnly(targetContainer, isAutoplay = false) {
+                // If the target container was manually paused by the user, try to find
+                // another visible container that is not manually paused. If none,
+                // keep everything paused.
+                if (targetContainer && targetContainer.dataset.manualPaused === 'true') {
+                    // find next best container (visible and not manually paused)
+                    let fallback = null;
+                    let bestRatio = 0;
+                    for (const [container, ratio] of this.videos.entries()) {
+                        if (container.dataset.manualPaused === 'true') continue;
+                        if (ratio > bestRatio && ratio > 0.4) {
+                            bestRatio = ratio;
+                            fallback = container;
+                        }
+                    }
+                    if (!fallback) {
+                        // No eligible container to autoplay — pause all
+                        this.pauseAll();
+                        return;
+                    }
+                    targetContainer = fallback;
+                }
+
                 for (const [container] of this.videos.entries()) {
                     const video = container.querySelector('.post-video');
                     const audio = container.querySelector('.video-audio');
                     const playBtn = container.querySelector('.video-play-pause');
-                    
+
                     if (container === targetContainer) {
                         if (video.paused) {
+                            // If this playback is triggered by autoplay, ensure it starts muted
+                            if (isAutoplay) {
+                                    try {
+                                        video.muted = true;
+                                        video.volume = 0;
+                                        if (audio) {
+                                            audio.muted = true;
+                                            audio.volume = 0;
+                                        }
+                                        // Update UI controls if present
+                                        const volSlider = container.querySelector('.video-volume-slider');
+                                        const muteBtn = container.querySelector('.video-mute');
+                                        if (volSlider) volSlider.value = 0;
+                                        if (muteBtn) muteBtn.textContent = '🔇';
+                                        // Ensure the next user click is treated as first click (unmute)
+                                        container.dataset.firstClick = 'true';
+                                    } catch (e) {}
+                            }
+
                             video.play().catch(() => {});
                             if (audio && !audio.muted && audio.volume > 0) {
                                 audio.currentTime = video.currentTime;
@@ -617,16 +664,21 @@
                 // Play/Pause
                 playPauseBtn.addEventListener('click', () => {
                     if (video.paused) {
+                        // User explicitly requested play -> clear manual pause flag
+                        delete container.dataset.manualPaused;
                         VideoManager.playOnly(container);
                     } else {
+                        // User explicitly paused -> mark as manually paused
                         video.pause();
                         if (audio) audio.pause();
+                        container.dataset.manualPaused = 'true';
                         playPauseBtn.textContent = '▶';
                     }
                 });
 
-                // Track if first click (for unmute)
-                let firstClick = true;
+                // Track if first click should unmute (per-container)
+                // Use dataset so autoplay can reset this flag when needed
+                container.dataset.firstClick = 'true';
                 const userDefaultVolume = window.defaultVolume || 0.05;
                 const userDefaultSpeed = window.defaultSpeed || 1.0;
                 
@@ -637,8 +689,8 @@
                 // Video click - first click unmutes to default volume, subsequent clicks toggle play/pause
                 video.addEventListener('click', () => {
                     // First click unmutes to user's default volume
-                    if (firstClick && (video.muted || video.volume === 0)) {
-                        firstClick = false;
+                    if (container.dataset.firstClick === 'true' && (video.muted || video.volume === 0)) {
+                        container.dataset.firstClick = 'false';
                         video.muted = false;
                         video.volume = userDefaultVolume;
                         if (audio) {
@@ -653,8 +705,8 @@
                         muteBtn.textContent = userDefaultVolume > 0.5 ? '🔊' : '🔉';
                         return; // Don't toggle pause on first click
                     }
-                    
-                    firstClick = false;
+
+                    container.dataset.firstClick = 'false';
                     
                     // Pause all other videos
                     document.querySelectorAll('.post-video').forEach(v => {
@@ -666,17 +718,17 @@
                         }
                     });
                     
-                    // Toggle play/pause
+                    // Toggle play/pause (user action)
                     if (video.paused) {
-                        video.play();
-                        if (audio && audio.volume > 0) {
-                            audio.currentTime = video.currentTime;
-                            audio.play().catch(() => {});
-                        }
+                        // User resumed playback -> clear manual pause flag
+                        delete container.dataset.manualPaused;
+                        VideoManager.playOnly(container);
                         playPauseBtn.textContent = '⏸';
                     } else {
+                        // User paused playback -> set manual pause flag
                         video.pause();
                         if (audio) audio.pause();
+                        container.dataset.manualPaused = 'true';
                         playPauseBtn.textContent = '▶';
                     }
                 });
@@ -728,9 +780,9 @@
                     } else {
                         muteBtn.textContent = video.volume > 0.5 ? '🔊' : '🔉';
                         if (video.volume === 0) {
-                            video.volume = 0.3;
-                            if (audio) audio.volume = 0.3;
-                            volumeSlider.value = 30;
+                            video.volume = 0.05;
+                            if (audio) audio.volume = 0.05;
+                            volumeSlider.value = 5;
                         }
                     }
                 });
