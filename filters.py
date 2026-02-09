@@ -36,6 +36,26 @@ def format_content(text: str) -> str:
     
     text = re.sub(r"!\[img\]\(([^)]+)\)", _replace_image, text)
 
+    # Render bare image URLs (not inside markdown link parentheses) as inline images.
+    # Use a negative lookbehind to avoid matching URLs that are immediately
+    # preceded by '(' which indicates they are inside a markdown link [text](url).
+    def _replace_bare_image(match: re.Match) -> str:
+        url = html.unescape(match.group(1))
+        # Treat preview.redd.it and common image extensions as images
+        if (
+            'preview.redd.it' in url
+            or re.search(r"\.(?:png|jpe?g|gif|webp|bmp)(?:[\?#].*)?$", url, re.IGNORECASE)
+        ):
+            return (
+                f'<img src="{url}" alt="Image" '
+                'style="max-width:100%;border-radius:4px;margin:10px 0;" loading="lazy">'
+            )
+        # If it doesn't look like an image, leave the raw URL text (it will be
+        # linkified later by inline formatting) — return the original match.
+        return match.group(0)
+
+    text = re.sub(r"(?<!\()\b(https?://[^\s)]+)", _replace_bare_image, text)
+
     # Process lines for blockquotes and other formatting
     lines = text.split("\n")
     formatted: list[str] = []
