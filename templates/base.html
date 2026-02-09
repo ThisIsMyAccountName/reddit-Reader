@@ -397,9 +397,10 @@
                 }
             });
 
-            // Initialize videos and galleries
+            // Initialize videos, galleries and media resizers
             initVideoControls(document);
             initGalleryLayout(document);
+            initMediaResizers(document);
         });
         
         // Listen for dynamically added posts (infinite scroll)
@@ -407,6 +408,7 @@
             const container = event.detail?.container || document;
             initVideoControls(container);
             initGalleryLayout(container);
+            initMediaResizers(container);
         });
         
         // Gallery layout - center images if they don't overflow
@@ -687,7 +689,9 @@
                 if (speedSelect) speedSelect.value = userDefaultSpeed;
 
                 // Video click - first click unmutes to default volume, subsequent clicks toggle play/pause
-                video.addEventListener('click', () => {
+                video.addEventListener('click', (e) => {
+                    // Prevent clicks on media from toggling comments
+                    e.stopPropagation();
                     // First click unmutes to user's default volume
                     if (container.dataset.firstClick === 'true' && (video.muted || video.volume === 0)) {
                         container.dataset.firstClick = 'false';
@@ -847,6 +851,157 @@
 
                 // Register with global manager for auto-play logic
                 VideoManager.register(container);
+            });
+        }
+
+        // Media resizer: allow click-and-drag resizing anywhere on media elements
+        function initMediaResizers(rootElement) {
+            // Capture-phase click suppressor to prevent clicks right after a resize
+            if (!window.__mediaResizeClickSuppressorAdded) {
+                window.__mediaResizeClickSuppressorAdded = true;
+                document.addEventListener('click', (e) => {
+                    if (window.__suppressClickUntil && Date.now() < window.__suppressClickUntil) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                    }
+                }, true); // capture
+            }
+
+            rootElement.querySelectorAll('.post-media, .post-image, .post-video, .gallery-image').forEach(el => {
+                // Determine the clickable/draggable target: prefer image or video element
+                const target = el.classList && el.classList.contains('post-media') ? (el.querySelector('img') || el.querySelector('video')) : el;
+                if (!target) return;
+
+                const container = target.closest('.post-media') || target.closest('.video-container') || target.parentElement;
+                if (!container || container.dataset.resizeInit) return;
+                container.dataset.resizeInit = 'true';
+
+                // Do not lift CSS caps on init. Ensure default rendering fits container
+                if (!container.dataset.wasResized) {
+                    try {
+                        target.style.width = '100%';
+                        target.style.height = 'auto';
+                        container.style.width = '';
+                        container.style.height = '';
+                    } catch (e) {}
+                }
+
+                let isResizing = false;
+                let startX = 0;
+                let startY = 0;
+                let startWidth = 0;
+                let startHeight = 0;
+                let naturalW = 0;
+                let naturalH = 0;
+
+                const getNatural = () => {
+                    const nw = target.naturalWidth || target.videoWidth || target.clientWidth;
+                    const nh = target.naturalHeight || target.videoHeight || target.clientHeight;
+                    return { nw, nh };
+                };
+
+                const onMouseDown = (e) => {
+                    // Only left button
+                    if (e.button !== 0) return;
+                    // Ignore dragging from controls
+                    if (e.target.closest('.video-controls') || e.target.closest('button') || e.target.closest('input')) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    isResizing = true;
+                    startX = e.clientX;
+                    startY = e.clientY;
+                    const rect = container.getBoundingClientRect();
+                    startWidth = rect.width;
+                    startHeight = rect.height || target.getBoundingClientRect().height;
+                    const nat = getNatural();
+                    naturalW = nat.nw || startWidth;
+                    naturalH = nat.nh || startHeight;
+                    // Save pre-resize inline styles to restore if user aborts resize
+                    const _preStyles = {
+                        targetMaxWidth: target.style.maxWidth,
+                        targetMaxHeight: target.style.maxHeight,
+                        targetWidth: target.style.width,
+                        targetHeight: target.style.height,
+                        containerWidth: container.style.width,
+                        containerHeight: container.style.height,
+                        containerOverflow: container.style.overflow
+                    };
+                    // Lift caps so user can grow beyond defaults during resize
+                    target.style.maxWidth = 'none';
+                    target.style.maxHeight = 'none';
+                    container.style.overflow = 'visible';
+                    document.body.style.cursor = 'nwse-resize';
+                };
+
+                const onMouseMove = (e) => {
+                    if (!isResizing) return;
+                    const dx = e.clientX - startX;
+                    const dy = e.clientY - startY;
+
+                    // Recompute natural sizes if available (videos may report after metadata)
+                    const nat = getNatural();
+                    const nw = nat.nw || naturalW || startWidth;
+                    const nh = nat.nh || naturalH || startHeight;
+
+                    // Decide whether user is resizing horizontally or vertically (use dominant axis)
+                    if (Math.abs(dy) > Math.abs(dx)) {
+                        // Vertical dominant: scale based on natural height to preserve aspect
+                        const desiredHeight = Math.max(50, Math.round(startHeight + dy));
+                        const scale = nh ? desiredHeight / nh : desiredHeight / startHeight;
+                        const newWidth = Math.max(50, Math.round(nw * scale));
+                        container.style.width = newWidth + 'px';
+                        container.style.height = desiredHeight + 'px';
+                        // Force the media element to the explicit pixel size so it visually scales
+                        target.style.width = newWidth + 'px';
+                        target.style.height = desiredHeight + 'px';
+                    } else {
+                        // Horizontal dominant: scale based on natural width
+                        const desiredWidth = Math.max(50, Math.round(startWidth + dx));
+                        const scale = nw ? desiredWidth / nw : desiredWidth / startWidth;
+                        const newHeight = Math.max(50, Math.round(nh * scale));
+                        container.style.width = desiredWidth + 'px';
+                        container.style.height = newHeight + 'px';
+                        target.style.width = desiredWidth + 'px';
+                        target.style.height = newHeight + 'px';
+                    }
+
+                    container.dataset.wasResized = 'true';
+                };
+
+                const onMouseUp = (e) => {
+                    if (!isResizing) return;
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    // Suppress the next click globally for a short window
+                    window.__suppressClickUntil = Date.now() + 300;
+                    // If the user didn't change size (click only), try to restore pre-resize styles
+                    const rect = container.getBoundingClientRect();
+                    const widthChanged = Math.abs(rect.width - startWidth) > 2 || Math.abs(rect.height - startHeight) > 2;
+                    if (!widthChanged) {
+                        try {
+                            // Restore default responsive behavior
+                            target.style.maxWidth = '';
+                            target.style.maxHeight = '';
+                            target.style.width = '';
+                            target.style.height = '';
+                            container.style.width = '';
+                            container.style.height = '';
+                            container.style.overflow = '';
+                        } catch (err) {}
+                    } else {
+                        // Keep explicit sizes and mark as resized
+                        container.dataset.wasResized = 'true';
+                    }
+                };
+
+                target.addEventListener('mousedown', onMouseDown);
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+
+                // Always stopPropagation for media clicks to avoid toggling comments
+                target.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
             });
         }
     </script>

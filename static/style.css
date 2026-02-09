@@ -644,6 +644,19 @@ body {
     height: auto;
 }
 
+/* Disable native resize handles and make media non-selectable during drag */
+.post-media, .post-image, .post-video, .gallery-image {
+    resize: none;
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Show resize cursor when hovering media to indicate draggable resize */
+.post-media:hover, .post-image:hover, .post-video:hover, .gallery-image:hover {
+    cursor: nwse-resize;
+}
+
 /* Video Player */
 .video-container {
     position: relative;
@@ -997,7 +1010,6 @@ body {
 }
 
 .comment.collapsed .comment-author::after {
-    content: " (collapsed)";
     font-weight: normal;
     color: var(--text-secondary);
     font-size: 0.9em;
