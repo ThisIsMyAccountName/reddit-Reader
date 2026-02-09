@@ -334,45 +334,7 @@
             return item;
         }
 
-        // Gallery navigation
-        document.addEventListener('click', (event) => {
-            const navLeft = event.target.closest('.gallery-nav-left');
-            const navRight = event.target.closest('.gallery-nav-right');
-            
-            if (navLeft) {
-                const scroll = navLeft.parentElement.querySelector('.gallery-scroll');
-                const images = Array.from(scroll.children);
-                const scrollLeft = scroll.scrollLeft;
-                
-                let targetImage = images[0];
-                for (let i = images.length - 1; i >= 0; i--) {
-                    if (images[i].offsetLeft < scrollLeft - 10) {
-                        targetImage = images[i];
-                        break;
-                    }
-                }
-                
-                targetImage.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-                return;
-            }
-            
-            if (navRight) {
-                const scroll = navRight.parentElement.querySelector('.gallery-scroll');
-                const images = Array.from(scroll.children);
-                const scrollLeft = scroll.scrollLeft;
-                
-                let targetImage = images[images.length - 1];
-                for (let i = 0; i < images.length; i++) {
-                    if (images[i].offsetLeft > scrollLeft + 10) {
-                        targetImage = images[i];
-                        break;
-                    }
-                }
-                
-                targetImage.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-                return;
-            }
-        });
+        // Gallery navigation removed — preview/peek shows second image below the main image
 
         // Video player controls
         document.addEventListener('DOMContentLoaded', () => {
@@ -1029,12 +991,51 @@
                 document.addEventListener('mousemove', onMouseMove);
                 document.addEventListener('mouseup', onMouseUp);
 
-                // Always stopPropagation for media clicks to avoid toggling comments
-                target.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                });
+                // Avoid stopping propagation for gallery preview images so preview clicks reach the preview handler
+                if (!target.closest || !target.closest('.gallery-preview')) {
+                    // Always stopPropagation for media clicks to avoid toggling comments on full media
+                    target.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                    });
+                }
             });
         }
+
+        // Click handler for gallery preview -> toggle inline expanded gallery
+        document.addEventListener('click', (e) => {
+            const preview = e.target.closest && e.target.closest('.gallery-preview');
+            if (!preview) return;
+
+            // Prevent bubbling to post expansion handlers
+            e.stopPropagation();
+
+            const post = preview.closest('.post');
+            if (!post) return;
+
+            const isExpanded = post.classList.toggle('gallery-expanded');
+            // Toggle aria
+            preview.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+
+            const full = post.querySelector('.gallery-full');
+            if (isExpanded) {
+                if (full) full.removeAttribute('hidden');
+                // initialize layout for the full gallery and media resizers
+                initGalleryLayout(post);
+                initMediaResizers(post);
+                // If post has comments container, load them (reuse existing logic)
+                const commentsContainer = post.querySelector('.post-top-comments');
+                if (commentsContainer && post.dataset.commentsLoaded !== 'true') {
+                    // call loadTopComments from posts.js scope: attempt to call global function if present
+                    if (typeof loadTopComments === 'function') {
+                        loadTopComments(post);
+                    }
+                } else if (commentsContainer) {
+                    commentsContainer.hidden = false;
+                }
+            } else {
+                if (full) full.setAttribute('hidden', '');
+            }
+        });
     </script>
 </body>
 </html>

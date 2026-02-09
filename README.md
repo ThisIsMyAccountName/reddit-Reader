@@ -2,14 +2,6 @@
 
 A custom Python program to fetch and display Reddit posts using the Reddit JSON API.
 
-## Features
-
-- ✅ Fetch posts from any subreddit
-- ✅ Multiple sort options (hot, new, top, rising)
-- ✅ View post details (score, comments count, author, etc.)
-- ✅ Fetch and display comments for specific posts
-- ✅ Clean, formatted terminal output
-- 🔜 AI-powered comment summaries (coming soon)
 
 ## Installation
 
@@ -26,7 +18,7 @@ pip install -r requirements.txt
 
 Run the program:
 ```bash
-python reddit_reader.py
+python app.py
 ```
 
 The program will prompt you for:
@@ -68,38 +60,6 @@ The program uses Reddit's public JSON API. Simply append `.json` to any Reddit U
 - `after`: Pagination token for next page
 - `before`: Pagination token for previous page
 
-## Examples
-
-### Fetch top posts from r/programming
-```python
-reader = RedditReader()
-data = reader.fetch_subreddit("programming", sort="top", limit=50)
-posts = reader.parse_posts(data)
-reader.display_posts(posts)
-```
-
-### Get comments with AI summary (future feature)
-```python
-# Coming soon: AI-powered comment summaries
-comments = reader.fetch_post_comments("AskReddit", "post_id_here")
-summary = reader.summarize_comments(comments)  # Not implemented yet
-```
-
-## Future Features
-
-- 🤖 AI-powered comment summaries using OpenAI/Anthropic
-- 💾 Save posts to local database
-- 🔍 Advanced filtering and search
-- 📊 Data visualization of post statistics
-- 🔔 Monitor subreddits for new posts
-- 📱 GUI interface
-
-## Notes
-
-- Reddit's API has rate limits. The program includes a User-Agent header to identify itself.
-- For heavy usage, consider using Reddit's official API with authentication.
-- Be respectful of Reddit's API usage guidelines.
-
 ## License
 
-MIT License - Feel free to use and modify as needed.
+MIT License? - Feel free to use and modify as needed.

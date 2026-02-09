@@ -145,17 +145,29 @@
         </div>
         {% elif post.gallery_urls and post.gallery_urls|length > 0 %}
         <div class="post-media gallery">
-            <div class="gallery-scroll">
+            <div class="gallery-preview" tabindex="0" role="button" aria-expanded="false">
+                <div class="gallery-preview-main">
+                    <img class="gallery-image preview-main" src="{{ post.gallery_urls[0] }}" alt="Gallery image" loading="lazy">
+                </div>
+                {% if post.gallery_urls|length > 1 %}
+                <div class="gallery-preview-peek">
+                    <img class="gallery-image preview-peek" src="{{ post.gallery_urls[1] }}" alt="Gallery image peek" loading="lazy">
+                    {% if post.gallery_urls|length > 2 %}
+                    <div class="gallery-more-count">+{{ post.gallery_urls|length - 1 }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="gallery-scroll gallery-full" hidden>
                 {% for url in post.gallery_urls %}
                 <div class="gallery-item">
                     <img class="gallery-image" src="{{ url }}" alt="Gallery image" loading="lazy">
                 </div>
                 {% endfor %}
             </div>
-            {% if post.gallery_urls|length > 1 %}
-            <button class="gallery-nav gallery-nav-left" aria-label="Previous image">‹</button>
-            <button class="gallery-nav gallery-nav-right" aria-label="Next image">›</button>
-            {% endif %}
+
+            <!-- navigation buttons removed; preview below main image shows second image -->
         </div>
         {% elif post.image_url %}
         <div class="post-media">
@@ -265,6 +277,8 @@
                     </div>
                 </div>`;
         } else if (post.gallery_urls && post.gallery_urls.length > 0) {
+            const previewMain = post.gallery_urls[0];
+            const previewPeek = post.gallery_urls.length > 1 ? post.gallery_urls[1] : null;
             const galleryItems = post.gallery_urls.map(url => `
                 <div class="gallery-item">
                     <img class="gallery-image" src="${url}" alt="Gallery image" loading="lazy">
@@ -272,11 +286,19 @@
             `).join('');
             mediaHTML = `
                 <div class="post-media gallery">
-                    <div class="gallery-scroll">${galleryItems}</div>
-                    ${post.gallery_urls.length > 1 ? `
-                        <button class="gallery-nav gallery-nav-left" aria-label="Previous image">‹</button>
-                        <button class="gallery-nav gallery-nav-right" aria-label="Next image">›</button>
-                    ` : ''}
+                    <div class="gallery-preview" tabindex="0" role="button" aria-expanded="false">
+                        <div class="gallery-preview-main">
+                            <img class="gallery-image preview-main" src="${previewMain}" alt="Gallery image" loading="lazy">
+                        </div>
+                        ${previewPeek ? `
+                        <div class="gallery-preview-peek">
+                            <img class="gallery-image preview-peek" src="${previewPeek}" alt="Gallery image peek" loading="lazy">
+                            ${post.gallery_urls.length > 2 ? `<div class="gallery-more-count">+${post.gallery_urls.length - 1}</div>` : ''}
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="gallery-scroll gallery-full" hidden>${galleryItems}</div>
+                    <!-- navigation buttons removed; preview below main image shows second image -->
                 </div>`;
         } else if (post.image_url) {
             mediaHTML = `
