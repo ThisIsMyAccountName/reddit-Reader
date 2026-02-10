@@ -28,7 +28,7 @@ body {
 .container {
     max-width: 1100px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 0px 20px;
     display: flex;
     gap: 20px;
 }
@@ -759,6 +759,44 @@ body {
     cursor: grab;
 }
 
+/* Share page: make media fill the share container */
+.share-card {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0;
+}
+.share-card .post-media {
+    width: 100%;
+    border-radius: 0;
+}
+.share-card .post-image,
+.share-card .post-video,
+.share-card .gallery-full .gallery-image,
+.share-card .gallery-preview-main img {
+    width: 100% !important;
+    height: 70vh;
+    max-height: 80vh;
+    object-fit: cover;
+}
+.share-card .gallery-preview {
+    flex-direction: column;
+    gap: 0;
+}
+.share-card .gallery-preview-peek {
+    display: none;
+}
+@media (max-width: 768px) {
+    .share-card .post-image,
+    .share-card .post-video,
+    .share-card .gallery-full .gallery-image,
+    .share-card .gallery-preview-main img {
+        height: auto;
+        max-height: none;
+        object-fit: contain;
+    }
+}
+
 /* Video Player */
 .video-container {
     position: relative;
@@ -1181,7 +1219,7 @@ body {
 
 .share-title,
 .user-heading {
-    font-size: 22px;
+    font-size: 16px;
     margin: 10px 0 12px;
 }
 

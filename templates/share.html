@@ -3,20 +3,8 @@
 {% block title %}Share - {{ post.title }}{% endblock %}
 
 {% block content %}
-<div class="main-content" style="margin: 0 auto;">
+<div class="main-content" style="margin: 0; max-width: 100%; width: 100%; padding: 20px;">
     <div class="share-card">
-        <div class="share-meta">
-            <a href="{{ url_for('subreddit', name=post.subreddit) }}" class="subreddit-link-inline">r/{{ post.subreddit }}</a>
-            <span class="text-secondary">•</span>
-            {% if post.author and post.author != "[deleted]" %}
-            <a href="{{ url_for('user_profile', username=post.author) }}" class="comment-author">u/{{ post.author }}</a>
-            {% else %}
-            <span class="comment-author">u/{{ post.author }}</span>
-            {% endif %}
-        </div>
-
-        <h1 class="share-title">{{ post.title }}</h1>
-
         {% if post.is_video and (post.hls_url or post.video_url) %}
         <div class="post-media video-container" data-hls-url="{{ post.hls_url }}" data-audio-url="{{ post.audio_url }}">
             <video class="post-video" src="{{ post.video_url }}" loop playsinline autoplay muted></video>
@@ -76,7 +64,19 @@
             <img class="post-image" src="{{ post.image_url }}" alt="Post image">
         </div>
         {% endif %}
+        
+        <h1 class="share-title">{{ post.title }}</h1>
 
+        <div class="share-meta">
+            <a href="{{ url_for('subreddit', name=post.subreddit) }}" class="subreddit-link-inline">r/{{ post.subreddit }}</a>
+            <span class="text-secondary">•</span>
+            {% if post.author and post.author != "[deleted]" %}
+            <a href="{{ url_for('user_profile', username=post.author) }}" class="comment-author">u/{{ post.author }}</a>
+            {% else %}
+            <span class="comment-author">u/{{ post.author }}</span>
+            {% endif %}
+        </div>
+        
         {% if post.selftext %}
         <div class="post-selftext" style="border-top: 1px solid var(--border); margin-top: 15px; padding-top: 15px;">
             {{ post.selftext | format_content | safe }}
@@ -86,6 +86,7 @@
         <div class="share-actions">
             <a href="{{ post_url }}" class="btn btn-primary">View full post</a>
             <a href="{{ post.permalink }}" target="_blank" class="btn">View on Reddit</a>
+            <span id="copy-feedback" class="text-secondary" style="margin-left:8px; display:none;">Copied!</span>
         </div>
     </div>
 </div>

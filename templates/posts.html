@@ -103,7 +103,7 @@
                     {% if not post.is_self %}
                     <a href="{{ post.url }}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>
                     {% endif %}
-                    <a href="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" class="meta-action-btn" title="Share">🔁</a>
+                    <a href="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" class="meta-action-btn share-btn" data-share-path="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" title="Share" rel="noopener noreferrer">🔁</a>
                     <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
                     {% if current_user.is_authenticated and post.subreddit != subreddit %}
                     <form method="post" action="{{ url_for('ban_subreddit', subreddit=post.subreddit) }}" class="inline-form" onsubmit="return confirm('Ban r/{{ post.subreddit }}? Posts from this subreddit will be hidden.')">
@@ -217,7 +217,52 @@
 (function() {
     const container = document.getElementById('posts-container');
     if (!container) return;
-    
+    // Attach copy-to-clipboard handler for share buttons (works for server and client rendered posts)
+    function setupShareButtons(root=document) {
+        const shareBtns = root.querySelectorAll('.share-btn');
+        shareBtns.forEach(btn => {
+            if (btn._shareHandlerAttached) return;
+            btn._shareHandlerAttached = true;
+            btn.addEventListener('click', async (e) => {
+                // Only intercept primary (left) clicks without modifier keys — allow middle-click/new-tab
+                if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const path = btn.getAttribute('data-share-path') || '';
+                const url = path.startsWith('http') ? path : (window.location.origin + path);
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(url);
+                    } else {
+                        const ta = document.createElement('textarea');
+                        ta.value = url;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                    }
+                    const original = btn.textContent;
+                    btn.textContent = '✅';
+                    btn.disabled = true;
+                    setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1500);
+                } catch (err) {
+                    console.error('Copy failed', err);
+                }
+            });
+        });
+    }
+
+    // initial setup (for server rendered buttons)
+    setupShareButtons(document);
+
+    // observe for dynamically added posts (client-side rendering)
+    const observer = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            if (m.addedNodes && m.addedNodes.length) setupShareButtons(m.target);
+        }
+    });
+    observer.observe(container, { childList: true, subtree: true });
+
     const subreddit = container.dataset.subreddit;
     const sort = container.dataset.sort;
     const timeFilter = container.dataset.timeFilter || 'day';
@@ -327,7 +372,7 @@
                             </form>
                             ` : ''}
                             ${!post.is_self ? `<a href="${post.url}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>` : ''}
-                            <a href="/r/${post.subreddit}/comments/${post.id}/share" class="meta-action-btn" title="Share">🔁</a>
+                            <a href="/r/${post.subreddit}/comments/${post.id}/share" class="meta-action-btn share-btn" data-share-path="/r/${post.subreddit}/comments/${post.id}/share" title="Share" rel="noopener noreferrer">🔁</a>
                             <a href="${post.permalink}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
                             ${isAuthenticated && post.subreddit !== subreddit ? `
                             <form method="post" action="/ban/${post.subreddit}" class="inline-form" onsubmit="return confirm('Ban r/${post.subreddit}? Posts from this subreddit will be hidden.')">
