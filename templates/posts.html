@@ -651,11 +651,14 @@
             // Calculate viewport indicator size and position
             const viewportHeight = window.innerHeight;
             const totalHeight = document.documentElement.scrollHeight;
-            const miniNavHeight = miniNav.clientHeight;
+            const miniNavRect = miniNav.getBoundingClientRect();
+            const itemsRect = miniNavItems.getBoundingClientRect();
+            const itemsTopOffset = Math.max(0, itemsRect.top - miniNavRect.top);
+            const itemsHeight = Math.max(0, itemsRect.height);
             
             const viewportRatio = viewportHeight / totalHeight;
-            const indicatorHeight = Math.max(30, miniNavHeight * viewportRatio);
-            const indicatorTop = scrollRatio * (miniNavHeight - indicatorHeight);
+            const indicatorHeight = Math.max(30, itemsHeight * viewportRatio);
+            const indicatorTop = itemsTopOffset + scrollRatio * (itemsHeight - indicatorHeight);
             
             miniNavViewport.style.height = indicatorHeight + 'px';
             miniNavViewport.style.top = indicatorTop + 'px';
@@ -696,7 +699,7 @@
                 e.preventDefault();
             } else if (e.target === miniNav || e.target === miniNavItems || miniNavItems.contains(e.target)) {
                 // Click to jump
-                const rect = miniNav.getBoundingClientRect();
+                const rect = miniNavItems.getBoundingClientRect();
                 const clickRatio = (e.clientY - rect.top) / rect.height;
                 const maxPageScroll = document.documentElement.scrollHeight - window.innerHeight;
                 const targetScroll = clickRatio * maxPageScroll;
@@ -709,7 +712,7 @@
         document.addEventListener('mousemove', (e) => {
             if (isDraggingViewport) {
                 const deltaY = e.clientY - dragStartY;
-                const miniNavHeight = miniNav.clientHeight;
+                const miniNavHeight = miniNavItems.clientHeight;
                 const maxPageScroll = document.documentElement.scrollHeight - window.innerHeight;
                 const scrollDelta = (deltaY / miniNavHeight) * maxPageScroll;
                 window.scrollTo(0, dragStartScroll + scrollDelta);
@@ -723,6 +726,14 @@
         
         window.addEventListener('scroll', updateViewportIndicator, { passive: true });
         window.addEventListener('resize', updateViewportIndicator, { passive: true });
+
+        const postsContainer = document.getElementById('posts-container');
+        if (window.ResizeObserver && postsContainer) {
+            const resizeObserver = new ResizeObserver(() => {
+                updateViewportIndicator();
+            });
+            resizeObserver.observe(postsContainer);
+        }
         
         // Adjust sidebar position based on header visibility
         function updateNavPosition() {
