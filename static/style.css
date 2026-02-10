@@ -409,7 +409,7 @@ body {
 }
 
 .post-title {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     margin-bottom: 10px;
     display: flex;
@@ -1020,7 +1020,7 @@ body {
     border: none;
     border-left: 2px solid var(--accent);
     border-radius: 6px;
-    padding: 10px 12px;
+    padding: 3px 5px;
     margin-bottom: 5px;
     overflow: hidden;
     cursor: pointer;
@@ -1054,11 +1054,7 @@ body {
 .comment-content {
     flex: 1;
     min-width: 0;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-        "body meta";
-    column-gap: 10px;
+    display: block;
 }
 
 .comment-header {
@@ -1073,7 +1069,7 @@ body {
 .comment-author {
     font-weight: bold;
     color: var(--accent);
-    max-width: 120px;
+    max-width: min(45vw, 220px);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1122,7 +1118,6 @@ body {
 }
 
 .comment-body {
-    grid-area: body;
     color: var(--text-primary);
     font-size: 13px;
     line-height: 1.45;
@@ -1131,19 +1126,24 @@ body {
 }
 
 .comment-meta-right {
-    grid-area: meta;
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
     font-size: 12px;
     color: var(--text-secondary);
-    min-width: 90px;
+    float: right;
+    width: auto;
+    margin: 0 0 4px 8px;
+    padding: 0;
+    border-bottom: none;
+    min-width: 0;
 }
 
 .comment-replies {
-    margin-top: 6px;
-    grid-column: 1 / -1;
+    margin-top: 3px;
+    clear: both;
 }
 
 /* Top comments under posts */
@@ -1710,30 +1710,6 @@ body {
 
 /* Mobile Optimizations for Comments */
 @media (max-width: 600px) {
-    /* Stack comment meta on top of body to save horizontal space */
-    .comment-content {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .comment-meta-right {
-        order: -1; /* Move to top */
-        flex-direction: row; /* Horizontal layout */
-        width: 100%;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 4px;
-        padding-bottom: 4px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        min-width: 0;
-    }
-
-    /* Allow full username width since it's on its own line */
-    .comment-author {
-        max-width: none;
-    }
-
     /* Reduce indentation for deep threads */
     .comment {
         padding: 8px 8px 8px 6px; /* Reduced left padding to save space */
