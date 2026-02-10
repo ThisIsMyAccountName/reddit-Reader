@@ -26,8 +26,8 @@ COPY . .
 EXPOSE 5000
 
 # Health check (optional but recommended)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:5000')" || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000', timeout=5)" || exit 1
 
 # Run Flask app
 CMD ["python", "app.py"]

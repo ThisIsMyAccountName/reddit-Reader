@@ -7,14 +7,14 @@ services:
       dockerfile: Dockerfile
     container_name: reddit-reader-app
     ports:
-      - "0.0.0.0:12345:5000"
+      - "5000:5000"
     volumes:
-      - reddit-data:/data
+      - ./:/app
+      - reddit-data:/app/data
     environment:
       - FLASK_APP=app.py
-      - FLASK_ENV=production
       - FLASK_DEBUG=0
-      - DATABASE_PATH=/data/users.db
+      - DATABASE_PATH=users.db
     restart: always
     networks:
       - reddit-network
