@@ -860,6 +860,10 @@
                 }
 
                 let isResizing = false;
+                let isMouseDown = false;
+                let downX = 0;
+                let downY = 0;
+                const resizeDragThreshold = 6;
                 let startX = 0;
                 let startY = 0;
                 let startWidth = 0;
@@ -874,16 +878,14 @@
                     return { nw, nh };
                 };
 
-                const onMouseDown = (e) => {
-                    // Only left button
-                    if (e.button !== 0) return;
-                    // Ignore dragging from controls
-                    if (e.target.closest('.video-controls') || e.target.closest('button') || e.target.closest('input')) return;
+                const startResize = (e) => {
+                    if (isResizing) return;
+                    isResizing = true;
+                    startX = downX;
+                    startY = downY;
                     e.preventDefault();
                     e.stopPropagation();
-                    isResizing = true;
-                    startX = e.clientX;
-                    startY = e.clientY;
+                    // Only left button
                     const rect = container.getBoundingClientRect();
                     startWidth = rect.width;
                     startHeight = rect.height || target.getBoundingClientRect().height;
@@ -919,7 +921,24 @@
                     document.body.style.cursor = 'nwse-resize';
                 };
 
+                const onMouseDown = (e) => {
+                    // Only left button
+                    if (e.button !== 0) return;
+                    // Ignore dragging from controls
+                    if (e.target.closest('.video-controls') || e.target.closest('button') || e.target.closest('input')) return;
+                    isMouseDown = true;
+                    downX = e.clientX;
+                    downY = e.clientY;
+                };
+
                 const onMouseMove = (e) => {
+                    if (!isMouseDown) return;
+                    if (!isResizing) {
+                        const deltaX = e.clientX - downX;
+                        const deltaY = e.clientY - downY;
+                        if (Math.hypot(deltaX, deltaY) < resizeDragThreshold) return;
+                        startResize(e);
+                    }
                     if (!isResizing) return;
                     const dx = e.clientX - startX;
                     const dy = e.clientY - startY;
@@ -973,6 +992,8 @@
                 };
 
                 const onMouseUp = (e) => {
+                    if (!isMouseDown && !isResizing) return;
+                    isMouseDown = false;
                     if (!isResizing) return;
                     isResizing = false;
                     document.body.style.cursor = '';
@@ -999,6 +1020,9 @@
                 };
 
                 target.addEventListener('mousedown', onMouseDown);
+                target.addEventListener('dragstart', (e) => {
+                    e.preventDefault();
+                });
                 document.addEventListener('mousemove', onMouseMove);
                 document.addEventListener('mouseup', onMouseUp);
 
