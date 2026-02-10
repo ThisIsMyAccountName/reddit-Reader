@@ -756,7 +756,7 @@ body {
 
 /* Show resize cursor when hovering media to indicate draggable resize */
 .post-media:hover, .post-image:hover, .post-video:hover, .gallery-image:hover {
-    cursor: nwse-resize;
+    cursor: grab;
 }
 
 /* Video Player */
