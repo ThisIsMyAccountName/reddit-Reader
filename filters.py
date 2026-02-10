@@ -20,7 +20,8 @@ def format_content(text: str) -> str:
         return (
             '<div class="giphy-container" style="margin:10px 0;">'
             f'<img src="https://media.giphy.com/media/{giphy_id}/giphy.gif" '
-            'alt="GIF" style="max-width:100%;border-radius:4px;" loading="lazy">'
+            'alt="GIF" class="comment-media" '
+            'style="max-width:100%;border-radius:4px;" loading="lazy">'
             "</div>"
         )
 
@@ -30,7 +31,7 @@ def format_content(text: str) -> str:
     def _replace_image(match: re.Match) -> str:
         url = html.unescape(match.group(1))
         return (
-            f'<img src="{url}" alt="Image" '
+            f'<img src="{url}" alt="Image" class="comment-media" '
             'style="max-width:100%;border-radius:4px;margin:10px 0;" loading="lazy">'
         )
     
@@ -41,13 +42,18 @@ def format_content(text: str) -> str:
     # preceded by '(' which indicates they are inside a markdown link [text](url).
     def _replace_bare_image(match: re.Match) -> str:
         url = html.unescape(match.group(1))
+        if re.search(r"\.(?:mp4|webm|ogv|mov|m4v)(?:[\?#].*)?$", url, re.IGNORECASE):
+            return (
+                '<video class="comment-media" controls playsinline preload="metadata" '
+                f'src="{url}"></video>'
+            )
         # Treat preview.redd.it and common image extensions as images
         if (
             'preview.redd.it' in url
             or re.search(r"\.(?:png|jpe?g|gif|webp|bmp)(?:[\?#].*)?$", url, re.IGNORECASE)
         ):
             return (
-                f'<img src="{url}" alt="Image" '
+                f'<img src="{url}" alt="Image" class="comment-media" '
                 'style="max-width:100%;border-radius:4px;margin:10px 0;" loading="lazy">'
             )
         # If it doesn't look like an image, leave the raw URL text (it will be
@@ -152,8 +158,47 @@ def _apply_inline_formatting(text: str) -> str:
         r'<span style="background:#555;color:#555;" title="Spoiler (hover to reveal)">\1</span>',
         text
     )
-    
+
+    text = _linkify_mentions(text)
+
     return text
+
+
+def _linkify_mentions(text: str) -> str:
+    parts = re.split(r"(<[^>]+>)", text)
+    out: list[str] = []
+    in_code = 0
+    in_anchor = 0
+
+    mention_re = re.compile(r"(?<![\w/])([ru])/([A-Za-z0-9_]{2,21})")
+
+    for part in parts:
+        if part.startswith("<"):
+            tag = part.lower()
+            if re.match(r"<code\b|<pre\b", tag):
+                in_code += 1
+            elif re.match(r"</code\b|</pre\b", tag):
+                in_code = max(0, in_code - 1)
+            if re.match(r"<a\b", tag):
+                in_anchor += 1
+            elif re.match(r"</a\b", tag):
+                in_anchor = max(0, in_anchor - 1)
+            out.append(part)
+            continue
+
+        if in_code or in_anchor:
+            out.append(part)
+            continue
+
+        def _replace_mention(match: re.Match) -> str:
+            kind = match.group(1)
+            name = match.group(2)
+            href = f"/r/{name}" if kind == "r" else f"/u/{name}"
+            return f'<a href="{href}" class="mention-link">{kind}/{name}</a>'
+
+        out.append(mention_re.sub(_replace_mention, part))
+
+    return "".join(out)
 
 
 def register_filters(app):

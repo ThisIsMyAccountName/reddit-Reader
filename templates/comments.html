@@ -93,6 +93,9 @@
             🔗 View Link
         </a>
         {% endif %}
+        <a href="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" class="btn">
+            🔁 Share
+        </a>
         <a href="{{ post.permalink }}" target="_blank" class="btn">
             🔗 View on Reddit
         </a>
@@ -108,7 +111,11 @@
     <div class="comment" data-depth="{{ comment.depth }}">
         <div class="comment-content">
             <div class="comment-meta-right">
+                {% if comment.author and comment.author != "[deleted]" %}
+                <a href="{{ url_for('user_profile', username=comment.author) }}" class="comment-author">u/{{ comment.author }}</a>
+                {% else %}
                 <span class="comment-author">u/{{ comment.author }}</span>
+                {% endif %}
                 <span class="comment-score">⬆️ {{ "{:,}".format(comment.score) }}</span>
             </div>
             <div class="comment-body">{{ comment.body | format_content | safe }}</div>

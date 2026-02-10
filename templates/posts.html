@@ -103,6 +103,7 @@
                     {% if not post.is_self %}
                     <a href="{{ post.url }}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>
                     {% endif %}
+                    <a href="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" class="meta-action-btn" title="Share">🔁</a>
                     <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
                     {% if current_user.is_authenticated and post.subreddit != subreddit %}
                     <form method="post" action="{{ url_for('ban_subreddit', subreddit=post.subreddit) }}" class="inline-form" onsubmit="return confirm('Ban r/{{ post.subreddit }}? Posts from this subreddit will be hidden.')">
@@ -326,6 +327,7 @@
                             </form>
                             ` : ''}
                             ${!post.is_self ? `<a href="${post.url}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>` : ''}
+                            <a href="/r/${post.subreddit}/comments/${post.id}/share" class="meta-action-btn" title="Share">🔁</a>
                             <a href="${post.permalink}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
                             ${isAuthenticated && post.subreddit !== subreddit ? `
                             <form method="post" action="/ban/${post.subreddit}" class="inline-form" onsubmit="return confirm('Ban r/${post.subreddit}? Posts from this subreddit will be hidden.')">
@@ -365,6 +367,10 @@
         
         const isCollapsed = collapsedIds.has(comment.id);
         const collapsedClass = isCollapsed ? 'collapsed' : '';
+        const author = comment.author || '[deleted]';
+        const authorHTML = author !== '[deleted]'
+            ? `<a href="/u/${encodeURIComponent(author)}" class="comment-author">u/${author}</a>`
+            : `<span class="comment-author">u/${author}</span>`;
         
         // Use regular comment classes to inherit correct styling (blue border, etc.)
         // Added 'comment-reply' class if it's a child (detected by lack of depth property or handle externally? 
@@ -373,7 +379,7 @@
             <div class="comment ${comment.depth > 0 ? 'comment-reply' : ''} ${collapsedClass}" data-depth="${comment.depth || 0}" data-comment-id="${comment.id || ''}">
                 <div class="comment-content">
                     <div class="comment-meta-right">
-                        <span class="comment-author">u/${comment.author}</span>
+                        ${authorHTML}
                         <span class="comment-score">⬆️ ${comment.score.toLocaleString()}</span>
                     </div>
                     <div class="comment-body">${comment.formatted_body || comment.body}</div>

@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Share - {{ post.title }}{% endblock %}
+
+{% block content %}
+<div class="main-content" style="margin: 0 auto;">
+    <div class="share-card">
+        <div class="share-meta">
+            <a href="{{ url_for('subreddit', name=post.subreddit) }}" class="subreddit-link-inline">r/{{ post.subreddit }}</a>
+            <span class="text-secondary">•</span>
+            {% if post.author and post.author != "[deleted]" %}
+            <a href="{{ url_for('user_profile', username=post.author) }}" class="comment-author">u/{{ post.author }}</a>
+            {% else %}
+            <span class="comment-author">u/{{ post.author }}</span>
+            {% endif %}
+        </div>
+
+        <h1 class="share-title">{{ post.title }}</h1>
+
+        {% if post.is_video and (post.hls_url or post.video_url) %}
+        <div class="post-media video-container" data-hls-url="{{ post.hls_url }}" data-audio-url="{{ post.audio_url }}">
+            <video class="post-video" src="{{ post.video_url }}" loop playsinline autoplay muted></video>
+            {% if post.audio_url %}
+            <audio class="video-audio" src="{{ post.audio_url }}" style="display:none;" loop muted></audio>
+            {% endif %}
+            <div class="video-controls">
+                <button class="video-btn video-play-pause" aria-label="Play/Pause">⏸</button>
+                <div class="video-timeline">
+                    <div class="video-progress"></div>
+                </div>
+                <div class="video-volume-container">
+                    <button class="video-btn video-mute" aria-label="Mute">🔇</button>
+                    <input type="range" class="video-volume-slider" min="0" max="100" value="0">
+                </div>
+                <div class="video-speed-container">
+                    <select class="video-speed-select" aria-label="Playback speed">
+                        <option value="0.25">0.25x</option>
+                        <option value="0.5">0.5x</option>
+                        <option value="0.75">0.75x</option>
+                        <option value="1" selected>1x</option>
+                        <option value="1.25">1.25x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="1.75">1.75x</option>
+                        <option value="2">2x</option>
+                    </select>
+                </div>
+                <button class="video-btn video-fullscreen" aria-label="Fullscreen">⛶</button>
+            </div>
+        </div>
+        {% elif post.gallery_urls and post.gallery_urls|length > 0 %}
+        <div class="post-media gallery">
+            <div class="gallery-preview" tabindex="0" role="button" aria-expanded="false">
+                <div class="gallery-preview-main">
+                    <img class="gallery-image preview-main" src="{{ post.gallery_urls[0] }}" alt="Gallery image" loading="lazy">
+                </div>
+                {% if post.gallery_urls|length > 1 %}
+                <div class="gallery-preview-peek">
+                    <img class="gallery-image preview-peek" src="{{ post.gallery_urls[1] }}" alt="Gallery image peek" loading="lazy">
+                    {% if post.gallery_urls|length > 2 %}
+                    <div class="gallery-more-count">+{{ post.gallery_urls|length - 1 }}</div>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="gallery-scroll gallery-full" hidden>
+                {% for url in post.gallery_urls %}
+                <div class="gallery-item">
+                    <img class="gallery-image" src="{{ url }}" alt="Gallery image" loading="lazy">
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% elif post.image_url %}
+        <div class="post-media">
+            <img class="post-image" src="{{ post.image_url }}" alt="Post image">
+        </div>
+        {% endif %}
+
+        {% if post.selftext %}
+        <div class="post-selftext" style="border-top: 1px solid var(--border); margin-top: 15px; padding-top: 15px;">
+            {{ post.selftext | format_content | safe }}
+        </div>
+        {% endif %}
+
+        <div class="share-actions">
+            <a href="{{ post_url }}" class="btn btn-primary">View full post</a>
+            <a href="{{ post.permalink }}" target="_blank" class="btn">View on Reddit</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

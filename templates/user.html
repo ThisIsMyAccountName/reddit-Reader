@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}u/{{ username }} - Reddit Reader{% endblock %}
+
+{% block content %}
+<div class="main-content" style="margin: 0 auto;">
+    <div class="user-card">
+        <div class="user-heading">u/{{ username }}</div>
+        <p class="text-secondary" style="margin-top: 6px;">Profile pages are simple right now. Open the user on Reddit for full details.</p>
+        <div class="user-actions">
+            <a href="{{ reddit_url }}" target="_blank" class="btn btn-primary">View on Reddit</a>
+            <a href="{{ url_for('index') }}" class="btn">Back to feed</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

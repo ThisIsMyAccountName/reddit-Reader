@@ -451,6 +451,54 @@ def comments(subreddit, post_id):
     )
 
 
+@app.route("/r/<subreddit>/comments/<post_id>/share")
+def share_post(subreddit, post_id):
+    data = reader.fetch_post_comments(subreddit, post_id)
+
+    if not data or len(data) < 2:
+        return render_template("error.html", message="Could not load post"), 404
+
+    post_data = data[0]["data"]["children"][0]["data"]
+    media = reader.extract_media(post_data)
+    post = {
+        "title": post_data.get("title", ""),
+        "author": post_data.get("author", "[deleted]"),
+        "subreddit": post_data.get("subreddit", ""),
+        "score": post_data.get("score", 0),
+        "num_comments": post_data.get("num_comments", 0),
+        "url": post_data.get("url", ""),
+        "permalink": f"https://reddit.com{post_data.get('permalink', '')}",
+        "created_utc": post_data.get("created_utc", 0),
+        "selftext": post_data.get("selftext", ""),
+        "is_self": post_data.get("is_self", False),
+        "id": post_data.get("id", ""),
+        "image_url": media["image_url"],
+        "is_video": media["is_video"],
+        "video_url": media["video_url"],
+        "audio_url": media["audio_url"],
+        "hls_url": media["hls_url"],
+        "gallery_urls": media["gallery_urls"],
+    }
+    post_url = url_for("comments", subreddit=subreddit, post_id=post_id)
+
+    return render_template(
+        "share.html",
+        post=post,
+        post_url=post_url,
+        reader=reader,
+    )
+
+
+@app.route("/u/<username>")
+def user_profile(username):
+    reddit_url = f"https://reddit.com/u/{username}"
+    return render_template(
+        "user.html",
+        username=username,
+        reddit_url=reddit_url,
+    )
+
+
 @app.route("/search")
 def search():
     query = request.args.get("q", "").strip()

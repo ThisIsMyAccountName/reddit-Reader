@@ -303,10 +303,19 @@
             const meta = document.createElement('div');
             meta.className = 'comment-meta-right';
             if (showAuthor) {
-                const author = document.createElement('span');
-                author.className = 'comment-author';
-                author.textContent = `u/${comment.author}`;
-                meta.appendChild(author);
+                const authorName = comment.author || '[deleted]';
+                if (authorName !== '[deleted]') {
+                    const authorLink = document.createElement('a');
+                    authorLink.className = 'comment-author';
+                    authorLink.href = `/u/${encodeURIComponent(authorName)}`;
+                    authorLink.textContent = `u/${authorName}`;
+                    meta.appendChild(authorLink);
+                } else {
+                    const author = document.createElement('span');
+                    author.className = 'comment-author';
+                    author.textContent = `u/${authorName}`;
+                    meta.appendChild(author);
+                }
             }
             meta.appendChild(score);
 
@@ -829,7 +838,7 @@
                 }, true); // capture
             }
 
-            rootElement.querySelectorAll('.post-media, .post-image, .post-video, .gallery-image').forEach(el => {
+            rootElement.querySelectorAll('.post-media, .post-image, .post-video, .gallery-image, .comment-body img, .comment-body video').forEach(el => {
                 // Determine the clickable/draggable target: prefer image or video element
                 const target = el.classList && el.classList.contains('post-media') ? (el.querySelector('img') || el.querySelector('video')) : el;
                 if (!target) return;
@@ -903,7 +912,7 @@
                         containerOverflow: container.style.overflow
                     };
                     // Compute a stable cap based on the bounding post container (account for padding)
-                    const boundingAncestor = container.closest('.post') || container.closest('.post-detail') || container.closest('.main-content') || document.body;
+                    const boundingAncestor = container.closest('.comment') || container.closest('.post') || container.closest('.post-detail') || container.closest('.main-content') || document.body;
                     const bRect = boundingAncestor.getBoundingClientRect();
                     const bStyle = window.getComputedStyle(boundingAncestor);
                     const padLeft = parseFloat(bStyle.paddingLeft) || 0;

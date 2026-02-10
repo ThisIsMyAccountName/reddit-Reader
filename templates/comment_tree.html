@@ -1,7 +1,11 @@
 <div class="comment comment-reply" data-depth="{{ reply.depth }}">
     <div class="comment-content">
         <div class="comment-meta-right">
+            {% if reply.author and reply.author != "[deleted]" %}
+            <a href="{{ url_for('user_profile', username=reply.author) }}" class="comment-author">u/{{ reply.author }}</a>
+            {% else %}
             <span class="comment-author">u/{{ reply.author }}</span>
+            {% endif %}
             <span class="comment-score">⬆️ {{ "{:,}".format(reply.score) }}</span>
         </div>
         <div class="comment-body">{{ reply.body | format_content | safe }}</div>
