@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: reddit-reader-app
     ports:
-      - "5000:5000"
+      - "0.0.0.0:12345:5000"
     volumes:
       - ./:/app
       - reddit-data:/app/data
