@@ -1852,6 +1852,15 @@ body {
     overflow: visible;
 }
 
+/* Invisible clickable strip between post text and comments to toggle text independently */
+.post-text-toggle {
+    display: block;
+    height: 14px;
+    width: 100%;
+    cursor: pointer;
+    margin-top: 6px;
+}
+
 /* Mobile Optimizations for Comments */
 @media (max-width: 600px) {
     /* Reduce indentation for deep threads */

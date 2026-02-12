@@ -72,6 +72,7 @@ def inject_user_settings():
         "default_volume": 5,
         "default_speed": 1.0,
         "sidebar_position": "left",
+        "title_links": True,
     }
 
     if request.endpoint in ("subreddit", "comments"):
@@ -80,7 +81,7 @@ def inject_user_settings():
     if current_user.is_authenticated:
         conn = get_db()
         row = conn.execute(
-            "SELECT pinned_subs, banned_subs, default_volume, default_speed, sidebar_position, feed_pinned_subs "
+            "SELECT pinned_subs, banned_subs, default_volume, default_speed, sidebar_position, feed_pinned_subs, title_links "
             "FROM user_settings WHERE user_id = ?",
             (current_user.id,),
         ).fetchone()
@@ -101,6 +102,7 @@ def inject_user_settings():
             context["default_volume"] = row["default_volume"] or 5
             context["default_speed"] = row["default_speed"] or 1.0
             context["sidebar_position"] = row["sidebar_position"] or "left"
+            context["title_links"] = bool(row["title_links"]) if row["title_links"] is not None else True
     return context
 
 
@@ -184,7 +186,7 @@ def logout():
 def settings():
     conn = get_db()
     row = conn.execute(
-        "SELECT pinned_subs, banned_subs, default_volume, default_speed, sidebar_position "
+        "SELECT pinned_subs, banned_subs, default_volume, default_speed, sidebar_position, title_links "
         "FROM user_settings WHERE user_id = ?",
         (current_user.id,),
     ).fetchone()
@@ -198,6 +200,7 @@ def settings():
     default_volume = (row["default_volume"] if row and row["default_volume"] is not None else 5)
     default_speed = (row["default_speed"] if row and row["default_speed"] is not None else 1.0)
     sidebar_position = (row["sidebar_position"] if row and row["sidebar_position"] else "left")
+    title_links = (bool(row["title_links"]) if row and row["title_links"] is not None else True)
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -234,19 +237,23 @@ def settings():
                 current_subs = [s.strip() for s in new_order.split(",") if s.strip()]
         elif action == "unban" and sub in banned_subs:
             banned_subs.remove(sub)
+        elif action == "save_behavior":
+            # Checkbox will be present when checked
+            title_links = True if request.form.get("title_links") in ("on", "1", "true") else False
 
         conn.execute(
             """
-            INSERT INTO user_settings (user_id, pinned_subs, banned_subs, default_volume, default_speed, sidebar_position)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO user_settings (user_id, pinned_subs, banned_subs, default_volume, default_speed, sidebar_position, title_links)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id) DO UPDATE SET
                 pinned_subs = excluded.pinned_subs,
                 banned_subs = excluded.banned_subs,
                 default_volume = excluded.default_volume,
                 default_speed = excluded.default_speed,
-                sidebar_position = excluded.sidebar_position
+                sidebar_position = excluded.sidebar_position,
+                title_links = excluded.title_links
             """,
-            (current_user.id, ",".join(current_subs), ",".join(banned_subs), default_volume, default_speed, sidebar_position),
+            (current_user.id, ",".join(current_subs), ",".join(banned_subs), default_volume, default_speed, sidebar_position, 1 if title_links else 0),
         )
         conn.commit()
         conn.close()

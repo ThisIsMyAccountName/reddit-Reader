@@ -83,9 +83,11 @@
              data-increment="3"
              style="cursor: pointer;">
         <h2 class="post-title">
-            <a href="{{ url_for('comments', subreddit=post.subreddit, post_id=post.id) }}">
-                {{ post.title }}
-            </a>
+            {% if title_links %}
+            <a href="{{ url_for('comments', subreddit=post.subreddit, post_id=post.id) }}">{{ post.title }}</a>
+            {% else %}
+            <span class="post-title-text">{{ post.title }}</span>
+            {% endif %}
             <div class="post-meta">
                 <span class="post-meta-item"><a href="{{ url_for('subreddit', name=post.subreddit) }}" class="subreddit-link-inline">r/{{ post.subreddit }}</a></span>
                 <span class="post-meta-actions">
@@ -182,6 +184,7 @@
         <div class="post-text-content">
             {{ post.selftext | format_content | safe }}
         </div>
+        <div class="post-text-toggle" title="Toggle post text" aria-hidden="true"></div>
         {% endif %}
         
 
@@ -272,6 +275,7 @@
     const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
     const pinnedSubs = {{ pinned_subs | tojson if pinned_subs else '[]' }};
     const feedPinnedSubs = {{ feed_pinned_subs | tojson if feed_pinned_subs else '[]' }};
+    const titleLinks = {{ 'true' if title_links else 'false' }};
     let after = container.dataset.after;
     let loading = false;
     let noMorePosts = false;
@@ -360,7 +364,7 @@
         return `
             <article class="post" id="post-${index}" data-post-index="${index}" data-thumbnail="${thumbnail}" data-subreddit="${post.subreddit}" data-post-id="${post.id}" data-current-limit="0" data-increment="3" style="cursor: pointer;">
                 <h2 class="post-title">
-                    <a href="/r/${post.subreddit}/comments/${post.id}">${post.title}</a>
+                        ${titleLinks ? `<a href="/r/${post.subreddit}/comments/${post.id}">${post.title}</a>` : `<span class="post-title-text">${post.title}</span>`}
                     <div class="post-meta">
                         <span class="post-meta-item"><a href="/r/${post.subreddit}" class="subreddit-link-inline">r/${post.subreddit}</a></span>
                         <span class="post-meta-actions">
@@ -389,7 +393,7 @@
                 
                 ${mediaHTML}
                 
-                ${selftext ? `<div class="post-text-content">${selftext}</div>` : ''}
+                ${selftext ? `<div class="post-text-content">${selftext}</div><div class="post-text-toggle" title="Toggle post text" aria-hidden="true"></div>` : ''}
                 
                 
                 <div class="post-top-comments" hidden>
@@ -525,38 +529,24 @@
         const textContent = post.querySelector('.post-text-content');
         const commentsContainer = post.querySelector('.post-top-comments');
 
-        // Check if user clicked on the text content
-        const clickedText = e.target.closest('.post-text-content');
-        
-        // If clicking on already expanded text, do not collapse.
-        if (clickedText && clickedText.classList.contains('expanded')) {
+        // Check if user clicked on the text content or the dedicated text toggle
+        const clickedText = e.target.closest('.post-text-content, .post-text-toggle');
+
+        // If clicked the text area/toggle, toggle text only and do not affect comments
+        if (clickedText) {
+            if (textContent) {
+                textContent.classList.toggle('expanded');
+            }
             return;
         }
-        
-        // Determine intended state based on current state
-        // If we have text, toggle it.
-        // If text expands -> Show comments
-        // If text collapses -> Hide comments? User said "clicking again closes it".
-        
-        let isExpanding = true;
-        
-        if (textContent) {
-            // If already expanded, we are collapsing
-            if (textContent.classList.contains('expanded')) {
-                isExpanding = false;
-            }
-            textContent.classList.toggle('expanded');
-        } else {
-            // No text, toggle comments directly
-            // If comments visible, we are collapsing
-            if (commentsContainer && !commentsContainer.hidden) {
-                isExpanding = false;
-            }
-        }
-        
-        // Sync comments visibility
+
+        // Otherwise, clicking the post (outside the text toggle) follows existing behaviour:
+        // toggle comments (and leave text state unchanged)
+        let isExpandingComments = true;
+        if (commentsContainer && !commentsContainer.hidden) isExpandingComments = false;
+
         if (commentsContainer) {
-            if (isExpanding) {
+            if (isExpandingComments) {
                 if (post.dataset.commentsLoaded !== 'true') {
                     loadTopComments(post);
                 } else {

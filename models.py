@@ -38,6 +38,7 @@ def init_db():
             default_volume INTEGER DEFAULT 5,
             default_speed REAL DEFAULT 1.0,
             sidebar_position TEXT DEFAULT 'left',
+            title_links INTEGER DEFAULT 1,
             feed_pinned_subs TEXT DEFAULT '',
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
@@ -50,6 +51,7 @@ def init_db():
         "ALTER TABLE user_settings ADD COLUMN banned_subs TEXT DEFAULT ''",
         "ALTER TABLE user_settings ADD COLUMN sidebar_position TEXT DEFAULT 'left'",
         "ALTER TABLE user_settings ADD COLUMN feed_pinned_subs TEXT DEFAULT ''",
+        "ALTER TABLE user_settings ADD COLUMN title_links INTEGER DEFAULT 1",
     ):
         try:
             conn.execute(stmt)
