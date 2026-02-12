@@ -111,6 +111,8 @@
                     </form>
                     {% endif %}
                 </span>
+                <button class="meta-menu-toggle" aria-haspopup="true" aria-expanded="false" title="Actions">☰</button>
+                <div class="meta-menu" hidden aria-hidden="true"></div>
             </div>
         </h2>
         
@@ -380,6 +382,8 @@
                             </form>
                             ` : ''}
                         </span>
+                        <button class="meta-menu-toggle" aria-haspopup="true" aria-expanded="false" title="Actions">☰</button>
+                        <div class="meta-menu" hidden aria-hidden="true"></div>
                     </div>
                 </h2>
                 
@@ -808,6 +812,80 @@
         // Initial update
         updateViewportIndicator();
     }
+
+    // Meta-action condensed menu for narrow screens
+    document.addEventListener('click', (e) => {
+        const toggle = e.target.closest('.meta-menu-toggle');
+        if (toggle) {
+            e.stopPropagation();
+            const post = toggle.closest('.post');
+            if (!post) return;
+            const menu = post.querySelector('.meta-menu');
+            const actions = post.querySelector('.post-meta-actions');
+            if (!menu || !actions) return;
+            if (menu.hidden) {
+                // populate and show
+                menu.innerHTML = actions.innerHTML;
+                menu.hidden = false;
+                menu.setAttribute('aria-hidden', 'false');
+                toggle.setAttribute('aria-expanded', 'true');
+                // attach share handlers and other dynamic handlers
+                setupShareButtons(menu);
+
+                // Position menu under the toggle button (relative to the post)
+                menu.style.right = 'auto';
+                const toggleRect = toggle.getBoundingClientRect();
+                const postRect = post.getBoundingClientRect();
+                let left = toggleRect.left - postRect.left;
+                let top = toggleRect.bottom - postRect.top;
+
+                // apply initial position
+                menu.style.left = left + 'px';
+                menu.style.top = top + 'px';
+
+                // adjust to avoid overflow to the right
+                const menuRect = menu.getBoundingClientRect();
+                const overflowRight = (menuRect.right - postRect.right);
+                if (overflowRight > 0) {
+                    left = left - overflowRight - 8;
+                    menu.style.left = Math.max(8, left) + 'px';
+                }
+
+                // ensure menu doesn't go off the left edge
+                const updatedMenuRect = menu.getBoundingClientRect();
+                if (updatedMenuRect.left < postRect.left + 8) {
+                    menu.style.left = '8px';
+                }
+
+            } else {
+                menu.hidden = true;
+                menu.setAttribute('aria-hidden', 'true');
+                toggle.setAttribute('aria-expanded', 'false');
+                menu.style.left = '';
+                menu.style.top = '';
+                menu.style.right = '';
+            }
+            return;
+        }
+
+        // Close any open meta menus when clicking outside
+        document.querySelectorAll('.meta-menu').forEach(m => {
+            if (!m.hidden) {
+                m.hidden = true;
+                m.setAttribute('aria-hidden', 'true');
+                const t = m.closest('.post') ? m.closest('.post').querySelector('.meta-menu-toggle') : null;
+                if (t) t.setAttribute('aria-expanded', 'false');
+            }
+        });
+    }, true);
+
+    // Hide menus on resize to avoid stale state
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 480) {
+            document.querySelectorAll('.meta-menu').forEach(m => { m.hidden = true; m.setAttribute('aria-hidden','true'); });
+            document.querySelectorAll('.meta-menu-toggle').forEach(t => t.setAttribute('aria-expanded','false'));
+        }
+    });
 })();
 </script>
 {% endblock %}

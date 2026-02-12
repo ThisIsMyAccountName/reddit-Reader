@@ -396,16 +396,19 @@ body {
 
 /* Posts */
 .post {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 20px;
-    margin-bottom: 15px;
-    transition: border-color 0.2s;
+    /* List-style posts (edge-to-edge) */
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 12px 0; /* vertical spacing only to avoid double side padding */
+    margin: 0; /* remove card margins so dividers align flush */
+    border-bottom: 1px solid var(--border); /* divider between posts */
+    transition: border-color 0.2s, background 0.15s;
 }
 
 .post:hover {
     border-color: var(--accent);
+    background: transparent;
 }
 
 .post-title {
@@ -447,6 +450,54 @@ body {
     display: flex;
     gap: 8px;
     margin-left: auto;
+}
+
+/* Responsive condensed menu for very narrow screens */
+.meta-menu-toggle {
+    display: none; /* shown only on very small screens */
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.meta-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+    z-index: 1200;
+    min-width: 140px;
+    display: block; /* visible by default; use [hidden] to hide */
+}
+
+.meta-menu[hidden] {
+    display: none;
+}
+
+.meta-menu .meta-action-btn,
+.meta-menu form.inline-form {
+    display: block;
+    width: 100%;
+    margin: 4px 0;
+}
+
+/* Show condensed UI on very small screens */
+@media (max-width: 480px) {
+    .post-meta-actions { display: none; }
+    .meta-menu-toggle { display: inline-flex; }
+    /* ensure relative positioning so absolute menu aligns to post area */
+    .post { position: relative; }
 }
 
 .meta-action-btn {
