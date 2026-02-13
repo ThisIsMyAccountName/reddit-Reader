@@ -3,7 +3,7 @@
 {% block title %}Share - {{ post.title }}{% endblock %}
 
 {% block content %}
-<div class="main-content">
+<div class="main-content share-page">
     <article class="post">
         {% if post.is_video and (post.hls_url or post.video_url) %}
         <div class="post-media video-container" data-hls-url="{{ post.hls_url }}" data-audio-url="{{ post.audio_url }}">

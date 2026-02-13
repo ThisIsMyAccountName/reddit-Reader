@@ -848,6 +848,17 @@ body {
     }
 }
 
+/* Remove main-page media height cap on the dedicated share page */
+.share-page .post-image,
+.share-page .post-video,
+.share-page .gallery-image,
+.share-page .gallery-full .gallery-image,
+.share-page .gallery-preview-main img {
+    max-height: none !important;
+    height: auto !important;
+    object-fit: contain !important;
+}
+
 /* Video Player */
 
 /* Video Player */
