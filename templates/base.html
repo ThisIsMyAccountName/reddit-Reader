@@ -556,7 +556,9 @@
                 const progress = container.querySelector('.video-progress');
                 const muteBtn = container.querySelector('.video-mute');
                 const volumeSlider = container.querySelector('.video-volume-slider');
-                const speedSelect = container.querySelector('.video-speed-select');
+                const speedDecreaseBtn = container.querySelector('.video-speed-decrease');
+                const speedIncreaseBtn = container.querySelector('.video-speed-increase');
+                const speedDisplay = container.querySelector('.video-speed-display');
                 const fullscreenBtn = container.querySelector('.video-fullscreen');
                 
                 let hls = null;
@@ -659,7 +661,7 @@
                 
                 // Set default playback speed
                 video.playbackRate = userDefaultSpeed;
-                if (speedSelect) speedSelect.value = userDefaultSpeed;
+                if (speedDisplay) speedDisplay.textContent = userDefaultSpeed + 'x';
 
                 // Video click - first click unmutes to default volume, subsequent clicks toggle play/pause
                 video.addEventListener('click', (e) => {
@@ -749,8 +751,9 @@
                     }
                 });
 
-                // Mute button
-                muteBtn.addEventListener('click', () => {
+                // Mute button: toggle mute and open/close volume popover
+                muteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     video.muted = !video.muted;
                     if (audio) audio.muted = video.muted;
                     if (video.muted) {
@@ -763,6 +766,17 @@
                             volumeSlider.value = 5;
                         }
                     }
+
+                    // Toggle visible slider; auto-hide after a few seconds
+                    container.classList.toggle('volume-open');
+                    if (container._volumeTimeout) {
+                        clearTimeout(container._volumeTimeout);
+                        container._volumeTimeout = null;
+                    }
+                    container._volumeTimeout = setTimeout(() => {
+                        container.classList.remove('volume-open');
+                        container._volumeTimeout = null;
+                    }, 3500);
                 });
 
                 // Volume slider
@@ -787,12 +801,47 @@
                     }
                 });
 
-                // Playback speed dropdown
-                speedSelect.addEventListener('change', (e) => {
-                    const newSpeed = parseFloat(e.target.value);
+                // Keep slider visible while interacting with it
+                volumeSlider.addEventListener('pointerdown', (e) => {
+                    e.stopPropagation();
+                    container.classList.add('volume-open');
+                    if (container._volumeTimeout) { clearTimeout(container._volumeTimeout); container._volumeTimeout = null; }
+                });
+                volumeSlider.addEventListener('pointerup', (e) => {
+                    e.stopPropagation();
+                    if (container._volumeTimeout) clearTimeout(container._volumeTimeout);
+                    container._volumeTimeout = setTimeout(() => { container.classList.remove('volume-open'); container._volumeTimeout = null; }, 1200);
+                });
+                volumeSlider.addEventListener('blur', () => {
+                    if (container._volumeTimeout) clearTimeout(container._volumeTimeout);
+                    container._volumeTimeout = setTimeout(() => { container.classList.remove('volume-open'); container._volumeTimeout = null; }, 400);
+                });
+
+                // Playback speed +/- buttons
+                const changeSpeed = (delta) => {
+                    let newSpeed = Math.round((video.playbackRate + delta) * 100) / 100;
+                    if (newSpeed < 0.25) newSpeed = 0.25;
+                    if (newSpeed > 2) newSpeed = 2;
                     video.playbackRate = newSpeed;
                     if (audio) audio.playbackRate = newSpeed;
-                });
+
+                    // Show temporary popup above the +/- buttons with the new speed
+                    if (speedDisplay) {
+                        speedDisplay.textContent = newSpeed + 'x';
+                        speedDisplay.classList.add('show');
+                        if (container._speedTimeout) {
+                            clearTimeout(container._speedTimeout);
+                            container._speedTimeout = null;
+                        }
+                        container._speedTimeout = setTimeout(() => {
+                            speedDisplay.classList.remove('show');
+                            container._speedTimeout = null;
+                        }, 900);
+                    }
+                };
+
+                if (speedDecreaseBtn) speedDecreaseBtn.addEventListener('click', (e) => { e.stopPropagation(); changeSpeed(-0.25); });
+                if (speedIncreaseBtn) speedIncreaseBtn.addEventListener('click', (e) => { e.stopPropagation(); changeSpeed(0.25); });
 
                 // Fullscreen
                 fullscreenBtn.addEventListener('click', () => {

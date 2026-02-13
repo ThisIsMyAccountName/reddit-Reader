@@ -851,10 +851,21 @@ body {
 /* Video Player */
 
 /* Video Player */
+
 .video-container {
     position: relative;
-    width: 100%;
+    width: fit-content;
+    display: block;
+    margin: 0 auto;
     max-width: 100%;
+}
+
+/* On very small screens make media full-width for easier tap targets */
+@media (max-width: 640px) {
+    .video-container {
+        width: 100%;
+        display: block;
+    }
 }
 
 .plyr-player {
@@ -960,27 +971,47 @@ body {
 /* Volume slider: hidden by default, shows vertically on hover/focus */
 .video-volume-slider {
     position: absolute;
-    bottom: 42px;
-    right: 0;
-    width: 80px; /* length of the slider before rotation */
-    height: 4px;
+    bottom: 44px;
+    left: 50%;
+    width: 96px; /* length of the slider before rotation */
+    height: 6px;
     -webkit-appearance: none;
     appearance: none;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.28);
+    border-radius: 3px;
     outline: none;
     transform-origin: center;
-    transform: rotate(-90deg) translateY(8px);
+    transform: translateX(-50%) rotate(-90deg);
     opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s cubic-bezier(.2,.9,.2,1), transform 0.18s cubic-bezier(.2,.9,.2,1);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+}
+
+/* Visible when hovering or explicitly opened via JS */
+.video-volume-container:hover .video-volume-slider,
+.video-volume-container:focus-within .video-volume-slider,
+.video-volume-container.volume-open .video-volume-slider {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) rotate(-90deg) translateY(0);
+}
+
+/* Hide the mute icon while the slider is visible to avoid showing it under the slider */
+.video-volume-container:hover .video-mute,
+.video-volume-container.volume-open .video-mute,
+.video-volume-container:focus-within .video-mute {
+    opacity: 0;
+    transform: translateY(6px);
     pointer-events: none;
     transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
-.video-volume-container:hover .video-volume-slider,
-.video-volume-container:focus-within .video-volume-slider {
-    opacity: 1;
-    pointer-events: auto;
-    transform: rotate(-90deg) translateY(0);
+/* Slightly enlarge thumb for easier drag when vertical */
+.video-volume-slider::-webkit-slider-thumb {
+    width: 14px;
+    height: 14px;
+    margin-top: -5px;
 }
 
 .video-volume-slider::-webkit-slider-thumb {
@@ -1026,6 +1057,54 @@ body {
 .video-speed-select option {
     background: var(--bg-secondary);
     color: var(--text-primary);
+}
+
+/* Speed +/- controls */
+.video-speed-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: relative; /* for popup positioning */
+}
+.video-speed-display {
+    /* Hidden by default; acts as popup when shown */
+    position: absolute;
+    bottom: 36px;
+    left: 50%;
+    transform: translateX(-50%) translateY(6px);
+    padding: 6px 8px;
+    background: rgba(0,0,0,0.1);
+    color: var(--text-primary);
+    font-size: 13px;
+    border-radius: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.16s ease, transform 0.16s ease;
+    white-space: nowrap;
+}
+.video-speed-display.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+.video-speed-decrease,
+.video-speed-increase {
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px; /* larger click radius */
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: color 0.12s ease, background 0.12s ease;
+}
+.video-speed-decrease:hover,
+.video-speed-increase:hover {
+    color: var(--accent);
+    background: rgba(88,166,255,0.06); /* subtle hover halo */
 }
 
 /* Fullscreen styles */
