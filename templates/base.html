@@ -634,20 +634,22 @@
                 volumeSlider.value = 0;
                 muteBtn.textContent = '🔇';
 
-                // Play/Pause
-                playPauseBtn.addEventListener('click', () => {
-                    if (video.paused) {
-                        // User explicitly requested play -> clear manual pause flag
-                        delete container.dataset.manualPaused;
-                        VideoManager.playOnly(container);
-                    } else {
-                        // User explicitly paused -> mark as manually paused
-                        video.pause();
-                        if (audio) audio.pause();
-                        container.dataset.manualPaused = 'true';
-                        playPauseBtn.textContent = '▶';
-                    }
-                });
+                // Play/Pause (optional button) - only wire if the button exists
+                if (playPauseBtn) {
+                    playPauseBtn.addEventListener('click', () => {
+                        if (video.paused) {
+                            // User explicitly requested play -> clear manual pause flag
+                            delete container.dataset.manualPaused;
+                            VideoManager.playOnly(container);
+                        } else {
+                            // User explicitly paused -> mark as manually paused
+                            video.pause();
+                            if (audio) audio.pause();
+                            container.dataset.manualPaused = 'true';
+                            playPauseBtn.textContent = '▶';
+                        }
+                    });
+                }
 
                 // Track if first click should unmute (per-container)
                 // Use dataset so autoplay can reset this flag when needed
@@ -687,9 +689,10 @@
                     document.querySelectorAll('.post-video').forEach(v => {
                         if (v !== video) {
                             v.pause();
-                            const vAudio = v.closest('.video-container').querySelector('.video-audio');
-                            if (vAudio) vAudio.pause();
-                            v.closest('.video-container').querySelector('.video-play-pause').textContent = '▶';
+                            const vAudioEl = v.closest('.video-container').querySelector('.video-audio');
+                            if (vAudioEl) vAudioEl.pause();
+                            const otherBtn = v.closest('.video-container').querySelector('.video-play-pause');
+                            if (otherBtn) otherBtn.textContent = '▶';
                         }
                     });
                     
@@ -698,13 +701,13 @@
                         // User resumed playback -> clear manual pause flag
                         delete container.dataset.manualPaused;
                         VideoManager.playOnly(container);
-                        playPauseBtn.textContent = '⏸';
+                        if (playPauseBtn) playPauseBtn.textContent = '⏸';
                     } else {
                         // User paused playback -> set manual pause flag
                         video.pause();
                         if (audio) audio.pause();
                         container.dataset.manualPaused = 'true';
-                        playPauseBtn.textContent = '▶';
+                        if (playPauseBtn) playPauseBtn.textContent = '▶';
                     }
                 });
 
