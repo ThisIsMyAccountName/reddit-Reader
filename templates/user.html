@@ -6,11 +6,123 @@
 <div class="main-content" style="margin: 0 auto;">
     <div class="user-card">
         <div class="user-heading">u/{{ username }}</div>
-        <p class="text-secondary" style="margin-top: 6px;">Profile pages are simple right now. Open the user on Reddit for full details.</p>
+        <p class="text-secondary" style="margin-top: 6px;">Public posts and comments for this user.</p>
         <div class="user-actions">
             <a href="{{ reddit_url }}" target="_blank" class="btn btn-primary">View on Reddit</a>
             <a href="{{ url_for('index') }}" class="btn">Back to feed</a>
         </div>
+    </div>
+
+    <div class="controls" style="margin-top:12px;">
+        <a href="{{ url_for('user_profile', username=username, view='both', sort='hot') }}" class="sort-link {% if sort == 'hot' %}active{% endif %}">🔥 Hot</a>
+        <a href="{{ url_for('user_profile', username=username, view='both', sort='new') }}" class="sort-link {% if sort == 'new' %}active{% endif %}">🆕 New</a>
+        <a href="{{ url_for('user_profile', username=username, view='both', sort='top', t=time_filter or 'day') }}" class="sort-link {% if sort == 'top' %}active{% endif %}">⭐ Top</a>
+        <a href="{{ url_for('user_profile', username=username, view='both', sort='controversial') }}" class="sort-link {% if sort == 'controversial' %}active{% endif %}">⚖️ Controversial</a>
+
+        <span class="time-filter-divider">|</span>
+        <select id="time-filter" class="time-filter-select" onchange="window.location.href=this.value">
+            <option value="{{ url_for('user_profile', username=username, view='both', sort='top', t='hour') }}" {% if time_filter == 'hour' %}selected{% endif %}>Past Hour</option>
+            <option value="{{ url_for('user_profile', username=username, view='both', sort='top', t='day') }}" {% if time_filter == 'day' %}selected{% endif %}>Today</option>
+            <option value="{{ url_for('user_profile', username=username, view='both', sort='top', t='week') }}" {% if time_filter == 'week' %}selected{% endif %}>This Week</option>
+            <option value="{{ url_for('user_profile', username=username, view='both', sort='top', t='month') }}" {% if time_filter == 'month' %}selected{% endif %}>This Month</option>
+            <option value="{{ url_for('user_profile', username=username, view='both', sort='top', t='year') }}" {% if time_filter == 'year' %}selected{% endif %}>This Year</option>
+            <option value="{{ url_for('user_profile', username=username, view='both', sort='top', t='all') }}" {% if time_filter == 'all' %}selected{% endif %}>All Time</option>
+        </select>
+
+        <form method="get" action="{{ url_for('user_profile', username=username) }}" style="margin-left:auto; display:inline-flex; align-items:center; gap:8px;">
+            <input type="hidden" name="view" value="{{ view }}">
+            <input type="hidden" name="sort" value="{{ sort }}">
+            <input type="hidden" name="t" value="{{ time_filter }}">
+            <label style="display:inline-flex; align-items:center; gap:6px; color:var(--text-secondary);">
+                <input type="checkbox" name="only_posts" value="1" {% if only_posts %}checked{% endif %} onchange="this.form.submit()"> Only posts
+            </label>
+        </form>
+    </div>
+
+    <div id="posts-container" data-subreddit="user/{{ username }}" data-sort="{{ sort }}" data-time-filter="{{ time_filter or 'day' }}" style="margin-top:12px;">
+        {% set render_items = combined if combined else (posts if posts else comments) %}
+        {% if render_items %}
+            {% for item in render_items %}
+                {% if item._type == 'comment' or (not item._type and item.get('body')) %}
+                    <div class="comment" style="margin-bottom:10px;">
+                        <div class="comment-header">
+                            <a class="comment-author" href="{{ url_for('user_profile', username=item.author) }}">u/{{ item.author }}</a>
+                            <span class="text-secondary">in r/{{ item.subreddit }}</span>
+                            <a style="margin-left:auto;" href="{% if item.post_id %}{{ url_for('comments', subreddit=item.subreddit, post_id=item.post_id) }}{% else %}{{ item.permalink }}{% endif %}" target="_blank" class="btn">View</a>
+                        </div>
+                        <div class="comment-body">{{ item.body | format_content | safe }}</div>
+                    </div>
+                {% else %}
+                    <article class="post" data-post-id="{{ item.id }}">
+                        <h2 class="post-title">
+                            <a href="{{ url_for('comments', subreddit=item.subreddit, post_id=item.id) }}">{{ item.title }}</a>
+                            <div class="post-meta">
+                                <span class="post-meta-item"><a href="{{ url_for('subreddit', name=item.subreddit) }}" class="subreddit-link-inline">r/{{ item.subreddit }}</a></span>
+                            </div>
+                        </h2>
+
+                        {% if item.is_video and (item.hls_url or item.video_url) %}
+                        <div class="post-media video-container" data-hls-url="{{ item.hls_url }}" data-audio-url="{{ item.audio_url }}">
+                            <video class="post-video" src="{{ item.video_url }}" loop playsinline autoplay muted></video>
+                            {% if item.audio_url %}<audio class="video-audio" src="{{ item.audio_url }}" style="display:none;" loop muted></audio>{% endif %}
+                            <div class="video-controls">
+                                <button class="video-btn video-play-pause" aria-label="Play/Pause">⏸</button>
+                                <div class="video-timeline"><div class="video-progress"></div></div>
+                                <div class="video-volume-container">
+                                    <button class="video-btn video-mute" aria-label="Mute">🔇</button>
+                                    <input type="range" class="video-volume-slider" min="0" max="100" value="0">
+                                </div>
+                                <div class="video-speed-container">
+                                    <select class="video-speed-select" aria-label="Playback speed">
+                                        <option value="0.25">0.25x</option>
+                                        <option value="0.5">0.5x</option>
+                                        <option value="0.75">0.75x</option>
+                                        <option value="1" selected>1x</option>
+                                        <option value="1.25">1.25x</option>
+                                        <option value="1.5">1.5x</option>
+                                        <option value="1.75">1.75x</option>
+                                        <option value="2">2x</option>
+                                    </select>
+                                </div>
+                                <button class="video-btn video-fullscreen" aria-label="Fullscreen">⛶</button>
+                            </div>
+                        </div>
+                        {% elif item.gallery_urls and item.gallery_urls|length > 0 %}
+                        <div class="post-media gallery">
+                            <div class="gallery-preview" tabindex="0" role="button" aria-expanded="false">
+                                <div class="gallery-preview-main">
+                                    <img class="gallery-image preview-main" src="{{ item.gallery_urls[0] }}" alt="Gallery image" loading="lazy">
+                                </div>
+                                {% if item.gallery_urls|length > 1 %}
+                                <div class="gallery-preview-peek">
+                                    <img class="gallery-image preview-peek" src="{{ item.gallery_urls[1] }}" alt="Gallery image peek" loading="lazy">
+                                    {% if item.gallery_urls|length > 2 %}
+                                    <div class="gallery-more-count">+{{ item.gallery_urls|length - 1 }}</div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="gallery-scroll gallery-full" hidden>
+                                {% for url in item.gallery_urls %}
+                                <div class="gallery-item"><img class="gallery-image" src="{{ url }}" alt="Gallery image" loading="lazy"></div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% elif item.image_url %}
+                        <div class="post-media"><img class="post-image" src="{{ item.image_url }}" alt="Post image"></div>
+                        {% endif %}
+
+                        {% if item.selftext %}
+                        <div class="post-text-content">{{ item.selftext | format_content | safe }}</div>
+                        <div class="post-text-toggle" title="Toggle post text" aria-hidden="true"></div>
+                        {% endif %}
+                    </article>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="error-container"><p class="error-message">No items found for u/{{ username }}</p></div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

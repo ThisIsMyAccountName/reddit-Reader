@@ -498,11 +498,58 @@ def share_post(subreddit, post_id):
 
 @app.route("/u/<username>")
 def user_profile(username):
+    # Params: view=posts|comments|both, sort, t (for top), limit, only_posts toggle
+    view = request.args.get("view", "both")
+    sort = request.args.get("sort", config.DEFAULT_SORT)
+    t = request.args.get("t", "day")
+    limit = int(request.args.get("limit", config.DEFAULT_POST_LIMIT))
+    only_posts = request.args.get("only_posts", "0") in ("1", "true", "on")
+
+    posts = []
+    comments = []
+
+    # Fetch submitted posts
+    if view in ("posts", "both") or only_posts:
+        data_posts = reader.fetch_user(username, content="submitted", sort=sort, limit=limit, t=t if sort == "top" else None)
+        if data_posts:
+            posts = reader.parse_posts(data_posts)
+
+    # Fetch comments (unless only_posts)
+    if (view in ("comments", "both")) and not only_posts:
+        data_comments = reader.fetch_user(username, content="comments", sort=sort, limit=limit, t=t if sort == "top" else None)
+        if data_comments:
+            comments = reader.parse_user_comments(data_comments)
+
+    # Filter out banned subreddits for current user
+    if current_user.is_authenticated:
+        banned = get_user_banned_subs(current_user.id)
+        if banned:
+            posts = [p for p in posts if p["subreddit"].lower() not in banned]
+            comments = [c for c in comments if c["subreddit"].lower() not in banned]
+
     reddit_url = f"https://reddit.com/u/{username}"
+    # When both are requested, create a combined timeline (posts first, then comments)
+    combined = []
+    if view == "both" and not only_posts:
+        # tag items with type so template can render appropriately
+        for p in posts:
+            p2 = p.copy(); p2["_type"] = "post"; combined.append(p2)
+        for c in comments:
+            c2 = c.copy(); c2["_type"] = "comment"; combined.append(c2)
+
     return render_template(
         "user.html",
         username=username,
         reddit_url=reddit_url,
+        posts=posts,
+        comments=comments,
+        combined=combined,
+        view=view,
+        sort=sort,
+        time_filter=t,
+        limit=limit,
+        only_posts=only_posts,
+        reader=reader,
     )
 
 

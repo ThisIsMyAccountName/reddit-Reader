@@ -281,6 +281,62 @@ class RedditReader:
                 comments.append(parsed)
         return comments
 
+    def fetch_user(self, username: str, content: str = "submitted", sort: str = "new", limit: int = 25, after: Optional[str] = None, t: Optional[str] = None) -> Optional[Dict]:
+        """Fetch user submitted posts or comments: /user/<username>/<content>.json"""
+        if content not in ("submitted", "comments"):
+            content = "submitted"
+        url = f"https://reddit.com/user/{username}/{content}.json"
+        params: Dict = {"limit": min(limit, 100)}
+        if after:
+            params["after"] = after
+        if t and sort == "top":
+            params["t"] = t
+        return self._get_json(url, params=params)
+
+    def parse_user_comments(self, data: Optional[Dict]) -> List[Dict]:
+        """Parse the listing returned by /user/<name>/comments.json into a list of comment dicts."""
+        if not data or "data" not in data:
+            return []
+
+        comments: List[Dict] = []
+        for child in data["data"].get("children", []):
+            d = child.get("data", {})
+            # Basic fields
+            author = d.get("author", "[deleted]")
+            body = d.get("body", "")
+            score = d.get("score", 0)
+            subreddit = d.get("subreddit", "")
+            created = d.get("created_utc", 0)
+            cid = d.get("id", "")
+
+            # Derive post id from link_id (e.g., t3_<id>) when possible
+            link_id = d.get("link_id", "") or d.get("link_parent_id", "")
+            post_id = ""
+            if isinstance(link_id, str) and link_id.startswith("t3_"):
+                parts = link_id.split("_", 1)
+                if len(parts) > 1:
+                    post_id = parts[1]
+
+            permalink = d.get("permalink", "")
+            # Full urls
+            full_permalink = f"https://reddit.com{permalink}" if permalink else ""
+
+            comments.append(
+                {
+                    "author": author,
+                    "body": body,
+                    "score": score,
+                    "subreddit": subreddit,
+                    "created_utc": created,
+                    "id": cid,
+                    "permalink": full_permalink,
+                    "post_id": post_id,
+                    "link_title": d.get("link_title", ""),
+                }
+            )
+
+        return comments
+
     @staticmethod
     def format_timestamp(timestamp: float) -> str:
         """Convert a Unix timestamp to a human-readable string."""
