@@ -21,29 +21,6 @@ Run the program:
 python app.py
 ```
 
-The program will prompt you for:
-- Subreddit name (default: all)
-- Sort method (hot/new/top/rising)
-
-### Using as a Module
-
-```python
-from reddit_reader import RedditReader
-
-# Create reader instance
-reader = RedditReader()
-
-# Fetch posts
-data = reader.fetch_subreddit("python", sort="hot", limit=10)
-posts = reader.parse_posts(data)
-reader.display_posts(posts)
-
-# Fetch comments for a specific post
-comment_data = reader.fetch_post_comments("python", post_id="abc123")
-comments = reader.parse_comments(comment_data)
-reader.display_comments(comments)
-```
-
 ## Reddit JSON API
 
 The program uses Reddit's public JSON API. Simply append `.json` to any Reddit URL:
