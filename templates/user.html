@@ -54,11 +54,19 @@
                     </div>
                 {% else %}
                     <article class="post" data-post-id="{{ item.id }}">
+                        <div class="post-header">
+                            <div class="post-meta-left">
+                                <a href="{{ url_for('subreddit', name=item.subreddit) }}" class="subreddit-link-inline">r/{{ item.subreddit }}</a>
+                            </div>
+                            <div class="post-meta-actions">
+                                <!-- user page shows fewer action buttons here -->
+                            </div>
+                            <button class="meta-menu-toggle" aria-haspopup="true" aria-expanded="false" title="Actions">☰</button>
+                            <div class="meta-menu" hidden aria-hidden="true"></div>
+                        </div>
+
                         <h2 class="post-title">
                             <a href="{{ url_for('comments', subreddit=item.subreddit, post_id=item.id) }}">{{ item.title }}</a>
-                            <div class="post-meta">
-                                <span class="post-meta-item"><a href="{{ url_for('subreddit', name=item.subreddit) }}" class="subreddit-link-inline">r/{{ item.subreddit }}</a></span>
-                            </div>
                         </h2>
 
                         {% if item.is_video and (item.hls_url or item.video_url) %}

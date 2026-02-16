@@ -469,6 +469,34 @@ body {
     margin-left: auto;
 }
 
+/* Compact header above the title with subreddit + action buttons */
+.post-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.post-header .post-meta-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.post-header .subreddit-link-inline {
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+.post-header .subreddit-link-inline:hover {
+    color: var(--accent);
+}
+.post-header .post-meta-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
 .post-meta-item {
     display: flex;
     align-items: center;
@@ -524,6 +552,8 @@ body {
 /* Show condensed UI on very small screens */
 @media (max-width: 480px) {
     .post-meta-actions { display: none; }
+    /* also hide the more-specific header-scoped actions selector on small screens */
+    .post-header .post-meta-actions { display: none; }
     .meta-menu-toggle { display: inline-flex; }
     /* ensure relative positioning so absolute menu aligns to post area */
     .post { position: relative; }

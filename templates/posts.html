@@ -82,40 +82,43 @@
              data-current-limit="0"
              data-increment="3"
              style="cursor: pointer;">
+        <div class="post-header">
+            <div class="post-meta-left">
+                <a href="{{ url_for('subreddit', name=post.subreddit) }}" class="subreddit-link-inline">r/{{ post.subreddit }}</a>
+            </div>
+            <div class="post-meta-actions">
+                {% if current_user.is_authenticated %}
+                    {% if post.subreddit in feed_pinned_subs %}
+                    <form method="post" action="{{ url_for('unpin_subreddit', subreddit=post.subreddit) }}" class="inline-form">
+                        <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/{{ post.subreddit }}">📍</button>
+                    </form>
+                    {% elif post.subreddit not in pinned_subs %}
+                    <form method="post" action="{{ url_for('pin_subreddit', subreddit=post.subreddit) }}" class="inline-form">
+                        <button type="submit" class="meta-action-btn pin-btn" title="Pin r/{{ post.subreddit }}">📌</button>
+                    </form>
+                    {% endif %}
+                {% endif %}
+                {% if not post.is_self %}
+                <a href="{{ post.url }}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>
+                {% endif %}
+                <a href="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" class="meta-action-btn share-btn" data-share-path="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" title="Share" rel="noopener noreferrer">🔁</a>
+                <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
+                {% if current_user.is_authenticated and post.subreddit != subreddit %}
+                <form method="post" action="{{ url_for('ban_subreddit', subreddit=post.subreddit) }}" class="inline-form" onsubmit="return confirm('Ban r/{{ post.subreddit }}? Posts from this subreddit will be hidden.')">
+                    <button type="submit" class="meta-action-btn ban-btn" title="Ban r/{{ post.subreddit }}">🚫</button>
+                </form>
+                {% endif %}
+            </div>
+            <button class="meta-menu-toggle" aria-haspopup="true" aria-expanded="false" title="Actions">☰</button>
+            <div class="meta-menu" hidden aria-hidden="true"></div>
+        </div>
+
         <h2 class="post-title">
             {% if title_links %}
             <a href="{{ url_for('comments', subreddit=post.subreddit, post_id=post.id) }}">{{ post.title }}</a>
             {% else %}
             <span class="post-title-text">{{ post.title }}</span>
             {% endif %}
-            <div class="post-meta">
-                <span class="post-meta-item"><a href="{{ url_for('subreddit', name=post.subreddit) }}" class="subreddit-link-inline">r/{{ post.subreddit }}</a></span>
-                <span class="post-meta-actions">
-                    {% if current_user.is_authenticated %}
-                        {% if post.subreddit in feed_pinned_subs %}
-                        <form method="post" action="{{ url_for('unpin_subreddit', subreddit=post.subreddit) }}" class="inline-form">
-                            <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/{{ post.subreddit }}">📍</button>
-                        </form>
-                        {% elif post.subreddit not in pinned_subs %}
-                        <form method="post" action="{{ url_for('pin_subreddit', subreddit=post.subreddit) }}" class="inline-form">
-                            <button type="submit" class="meta-action-btn pin-btn" title="Pin r/{{ post.subreddit }}">📌</button>
-                        </form>
-                        {% endif %}
-                    {% endif %}
-                    {% if not post.is_self %}
-                    <a href="{{ post.url }}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>
-                    {% endif %}
-                    <a href="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" class="meta-action-btn share-btn" data-share-path="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" title="Share" rel="noopener noreferrer">🔁</a>
-                    <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
-                    {% if current_user.is_authenticated and post.subreddit != subreddit %}
-                    <form method="post" action="{{ url_for('ban_subreddit', subreddit=post.subreddit) }}" class="inline-form" onsubmit="return confirm('Ban r/{{ post.subreddit }}? Posts from this subreddit will be hidden.')">
-                        <button type="submit" class="meta-action-btn ban-btn" title="Ban r/{{ post.subreddit }}">🚫</button>
-                    </form>
-                    {% endif %}
-                </span>
-                <button class="meta-menu-toggle" aria-haspopup="true" aria-expanded="false" title="Actions">☰</button>
-                <div class="meta-menu" hidden aria-hidden="true"></div>
-            </div>
         </h2>
         
         {% if post.is_video and (post.hls_url or post.video_url) %}
@@ -349,32 +352,33 @@
         
         return `
             <article class="post" id="post-${index}" data-post-index="${index}" data-thumbnail="${thumbnail}" data-subreddit="${post.subreddit}" data-post-id="${post.id}" data-current-limit="0" data-increment="3" style="cursor: pointer;">
+                <div class="post-header">
+                    <div class="post-meta-left"><a href="/r/${post.subreddit}" class="subreddit-link-inline">r/${post.subreddit}</a></div>
+                    <div class="post-meta-actions">
+                        ${isAuthenticated && feedPinnedSubs.includes(post.subreddit) ? `
+                        <form method="post" action="/unpin/${post.subreddit}" class="inline-form">
+                            <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/${post.subreddit}">📍</button>
+                        </form>
+                        ` : isAuthenticated && !pinnedSubs.includes(post.subreddit) ? `
+                        <form method="post" action="/pin/${post.subreddit}" class="inline-form">
+                            <button type="submit" class="meta-action-btn pin-btn" title="Pin r/${post.subreddit}">📌</button>
+                        </form>
+                        ` : ''}
+                        ${!post.is_self ? `<a href="${post.url}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>` : ''}
+                        <a href="/r/${post.subreddit}/comments/${post.id}/share" class="meta-action-btn share-btn" data-share-path="/r/${post.subreddit}/comments/${post.id}/share" title="Share" rel="noopener noreferrer">🔁</a>
+                        <a href="${post.permalink}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
+                        ${isAuthenticated && post.subreddit !== subreddit ? `
+                        <form method="post" action="/ban/${post.subreddit}" class="inline-form" onsubmit="return confirm('Ban r/${post.subreddit}? Posts from this subreddit will be hidden.')">
+                            <button type="submit" class="meta-action-btn ban-btn" title="Ban r/${post.subreddit}">🚫</button>
+                        </form>
+                        ` : ''}
+                    </div>
+                    <button class="meta-menu-toggle" aria-haspopup="true" aria-expanded="false" title="Actions">☰</button>
+                    <div class="meta-menu" hidden aria-hidden="true"></div>
+                </div>
+
                 <h2 class="post-title">
                         ${titleLinks ? `<a href="/r/${post.subreddit}/comments/${post.id}">${post.title}</a>` : `<span class="post-title-text">${post.title}</span>`}
-                    <div class="post-meta">
-                        <span class="post-meta-item"><a href="/r/${post.subreddit}" class="subreddit-link-inline">r/${post.subreddit}</a></span>
-                        <span class="post-meta-actions">
-                            ${isAuthenticated && feedPinnedSubs.includes(post.subreddit) ? `
-                            <form method="post" action="/unpin/${post.subreddit}" class="inline-form">
-                                <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/${post.subreddit}">📍</button>
-                            </form>
-                            ` : isAuthenticated && !pinnedSubs.includes(post.subreddit) ? `
-                            <form method="post" action="/pin/${post.subreddit}" class="inline-form">
-                                <button type="submit" class="meta-action-btn pin-btn" title="Pin r/${post.subreddit}">📌</button>
-                            </form>
-                            ` : ''}
-                            ${!post.is_self ? `<a href="${post.url}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>` : ''}
-                            <a href="/r/${post.subreddit}/comments/${post.id}/share" class="meta-action-btn share-btn" data-share-path="/r/${post.subreddit}/comments/${post.id}/share" title="Share" rel="noopener noreferrer">🔁</a>
-                            <a href="${post.permalink}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
-                            ${isAuthenticated && post.subreddit !== subreddit ? `
-                            <form method="post" action="/ban/${post.subreddit}" class="inline-form" onsubmit="return confirm('Ban r/${post.subreddit}? Posts from this subreddit will be hidden.')">
-                                <button type="submit" class="meta-action-btn ban-btn" title="Ban r/${post.subreddit}">🚫</button>
-                            </form>
-                            ` : ''}
-                        </span>
-                        <button class="meta-menu-toggle" aria-haspopup="true" aria-expanded="false" title="Actions">☰</button>
-                        <div class="meta-menu" hidden aria-hidden="true"></div>
-                    </div>
                 </h2>
                 
                 ${mediaHTML}
