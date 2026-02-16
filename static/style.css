@@ -549,6 +549,23 @@ body {
     margin: 4px 0;
 }
 
+/* Label shown next to icon in mobile menu items */
+.meta-menu .meta-action-label {
+    margin-left: 10px;
+    color: var(--text-primary);
+    font-size: 13px;
+    vertical-align: middle;
+}
+
+/* Ensure menu items align icon then text */
+.meta-menu .meta-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+}
+
 /* Show condensed UI on very small screens */
 @media (max-width: 480px) {
     .post-meta-actions { display: none; }

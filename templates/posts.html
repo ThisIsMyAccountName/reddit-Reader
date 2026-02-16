@@ -98,11 +98,8 @@
                     </form>
                     {% endif %}
                 {% endif %}
-                {% if not post.is_self %}
-                <a href="{{ post.url }}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>
-                {% endif %}
                 <a href="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" class="meta-action-btn share-btn" data-share-path="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" title="Share" rel="noopener noreferrer">🔁</a>
-                <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
+                <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="Reddit">📤</a>
                 {% if current_user.is_authenticated and post.subreddit != subreddit %}
                 <form method="post" action="{{ url_for('ban_subreddit', subreddit=post.subreddit) }}" class="inline-form" onsubmit="return confirm('Ban r/{{ post.subreddit }}? Posts from this subreddit will be hidden.')">
                     <button type="submit" class="meta-action-btn ban-btn" title="Ban r/{{ post.subreddit }}">🚫</button>
@@ -805,7 +802,45 @@
             if (!menu || !actions) return;
             if (menu.hidden) {
                 // populate and show
+                // Clone actions into the menu, then append readable labels from title attributes
                 menu.innerHTML = actions.innerHTML;
+                // For each action (button/link/form) append a text label using the title/aria-label
+                menu.querySelectorAll('.meta-action-btn, form.inline-form').forEach(node => {
+                    if (node.tagName === 'FORM') {
+                        const btn = node.querySelector('button');
+                        if (btn) {
+                            // Prefer a short static label for pin/ban actions to avoid showing subreddit name
+                            let labelText = '';
+                            if (btn.classList.contains('pin-btn')) labelText = 'Pin';
+                            else if (btn.classList.contains('unpin-btn')) labelText = 'Unpin';
+                            else if (btn.classList.contains('ban-btn')) labelText = 'Ban';
+                            else labelText = (btn.getAttribute('title') || btn.getAttribute('aria-label') || btn.textContent || '').replace(/\s*r\//, '').replace(/\(.+\)/, '').trim();
+
+                            if (!btn.querySelector('.meta-action-label')) {
+                                const span = document.createElement('span');
+                                span.className = 'meta-action-label';
+                                span.textContent = labelText ? (' ' + labelText) : '';
+                                btn.appendChild(span);
+                            }
+                        }
+                    } else {
+                        // node is a link/button element
+                        // for certain button classes prefer short labels
+                        let labelText = '';
+                        if (node.classList && node.classList.contains('pin-btn')) labelText = 'Pin';
+                        else if (node.classList && node.classList.contains('unpin-btn')) labelText = 'Unpin';
+                        else if (node.classList && node.classList.contains('ban-btn')) labelText = 'Ban';
+                        else labelText = (node.getAttribute('title') || node.getAttribute('aria-label') || node.textContent || '').replace(/\s*r\//, '').replace(/\(.+\)/, '').trim();
+
+                        if (!node.querySelector || !node.querySelector('.meta-action-label')) {
+                            const span = document.createElement('span');
+                            span.className = 'meta-action-label';
+                            span.textContent = labelText ? (' ' + labelText) : '';
+                            node.appendChild(span);
+                        }
+                    }
+                });
+
                 menu.hidden = false;
                 menu.setAttribute('aria-hidden', 'false');
                 toggle.setAttribute('aria-expanded', 'true');
