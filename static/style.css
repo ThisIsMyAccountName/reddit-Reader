@@ -272,7 +272,7 @@ body {
 .subreddit-nav {
     display: flex;
     gap: 8px;
-    margin-bottom: 20px;
+    margin-bottom: 8px;
     flex-wrap: nowrap;
     align-items: center;
     overflow-x: auto;
@@ -300,28 +300,39 @@ body {
 }
 
 .subreddit-link {
-    padding: 8px 16px;
-    background: var(--bg-secondary);
+    padding: 4px 8px;
+    background: transparent;
     color: var(--text-secondary);
     text-decoration: none;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    font-size: 16px;
+    border-radius: 4px;
+    border: none;
+    font-size: 13px;
     font-weight: 500;
-    transition: all 0.2s;
+    transition: color 0.12s, background 0.12s;
     white-space: nowrap;
     flex-shrink: 0;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .subreddit-link:hover {
-    background: var(--bg-tertiary);
     color: var(--text-primary);
 }
 
 .subreddit-link.active {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.subreddit-link.active::after {
+    content: '';
+    display: block;
+    width: 28px;
+    height: 3px;
     background: var(--accent);
-    border-color: var(--accent);
-    color: white;
+    border-radius: 3px;
+    margin-top: 6px;
 }
 
 /* Inline subreddit link in posts */
@@ -338,35 +349,53 @@ body {
 
 /* Sort Controls */
 .controls {
-    background: var(--bg-secondary);
-    padding: 15px;
-    border-radius: 6px;
-    margin-bottom: 20px;
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    margin-bottom: 8px;
+    padding-bottom: 4px; /* spacing for separator */
+    border-bottom: 1px solid var(--border);
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
     flex-wrap: wrap;
 }
 
 .sort-link {
-    padding: 8px 16px;
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
+    padding: 4px 8px;
+    background: transparent;
+    color: var(--text-secondary);
     text-decoration: none;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    font-size: 14px;
-    transition: all 0.2s;
+    border-radius: 4px;
+    border: none;
+    font-size: 13px;
+    transition: color 0.12s, background 0.12s;
 }
 
 .sort-link:hover {
-    background: var(--accent);
-    border-color: var(--accent);
+    color: var(--text-primary);
+    text-decoration: none;
 }
 
 .sort-link.active {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.sort-link {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.sort-link.active::after {
+    content: '';
+    display: block;
+    width: 22px;
+    height: 3px;
     background: var(--accent);
-    border-color: var(--accent);
+    border-radius: 3px;
+    margin-top: 6px;
 }
 
 .time-filter-divider {
@@ -375,14 +404,14 @@ body {
 }
 
 .time-filter-select {
-    padding: 8px 12px;
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    font-size: 14px;
+    padding: 6px 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 13px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: color 0.12s, border-color 0.12s;
 }
 
 .time-filter-select:hover {
@@ -899,6 +928,14 @@ body {
     object-fit: contain;
     max-height: 40vh;
     height: auto;
+}
+
+/* On small screens remove the 40vh cap so videos can size naturally */
+@media (max-width: 640px) {
+    .post-video {
+        max-height: 60vh;
+        height: auto;
+    }
 }
 
 .video-controls {
@@ -1621,19 +1658,20 @@ body {
 }
 
 .pinned-sub {
-    padding: 4px 10px;
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
+    padding: 4px 8px;
+    background: transparent;
+    color: var(--text-secondary);
     text-decoration: none;
     border-radius: 4px;
-    font-size: 12px;
-    transition: background 0.2s;
+    font-size: 13px;
+    transition: color 0.12s, background 0.12s;
     white-space: nowrap;
     flex-shrink: 0;
 }
 
 .pinned-sub:hover {
-    background: var(--accent);
+    color: var(--accent);
+    text-decoration: underline;
 }
 
 /* Settings Page - Add Sub Form */
