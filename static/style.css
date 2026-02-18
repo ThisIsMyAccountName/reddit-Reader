@@ -1025,7 +1025,7 @@ body {
 .video-timeline {
     flex: 1 1 auto;
     min-width: 120px;
-    height: 8px;
+    height: 12px;
     background: rgba(255, 255, 255, 0.28);
     border-radius: 4px;
     cursor: pointer;

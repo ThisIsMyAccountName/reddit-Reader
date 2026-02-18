@@ -2,6 +2,21 @@
 
 A custom Python program to fetch and display Reddit posts using the Reddit JSON API.
 
+## Project Structure
+
+- `app.py`: Application bootstrap and app factory
+- `routes/`: Route registration modules separated by domain
+	- `auth_routes.py`: login/register/logout
+	- `settings_routes.py`: user settings, pin/ban management
+	- `content_routes.py`: subreddit, post, share, and user profile pages
+	- `api_routes.py`: JSON endpoints
+	- `context.py`: global template context injection
+	- `error_routes.py`: error handlers
+- `services/`: Reusable business logic helpers
+	- `user_settings_service.py`: settings load/save and normalization
+	- `post_builder.py`: post payload mapping for templates
+	- `comment_formatter.py`: recursive API comment body formatting
+
 
 ## Installation
 
