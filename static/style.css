@@ -429,7 +429,7 @@ body {
     background: transparent;
     border: none;
     border-radius: 0;
-    padding: 12px 0; /* vertical spacing only to avoid double side padding */
+    padding: 6px 0; /* reduced vertical spacing */
     margin: 0; /* remove card margins so dividers align flush */
     border-bottom: 1px solid var(--border); /* divider between posts */
     transition: border-color 0.2s, background 0.15s;
@@ -475,26 +475,37 @@ body {
     justify-content: space-between;
     align-items: center;
     gap: 12px;
-    margin-bottom: 6px;
-    font-size: 13px;
+    font-size: 14px;
     color: var(--text-secondary);
+    flex-wrap: nowrap;
 }
 .post-header .post-meta-left {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
 }
 .post-header .subreddit-link-inline {
     color: var(--text-secondary);
     text-decoration: none;
+    max-width: 160px;
 }
 .post-header .subreddit-link-inline:hover {
     color: var(--accent);
+    text-decoration: underline;
+}
+
+/* Make username behave like subreddit link on hover */
+.post-meta-left .post-author:hover {
+    color: var(--accent);
+    text-decoration: underline;
 }
 .post-header .post-meta-actions {
     display: flex;
     gap: 8px;
     align-items: center;
+    flex-shrink: 0;
 }
 
 .post-meta-item {
@@ -514,14 +525,14 @@ body {
     display: none; /* shown only on very small screens */
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 28px;
+    height: 28px;
     background: var(--bg-tertiary);
     border: 1px solid var(--border);
     border-radius: 6px;
     color: var(--text-primary);
     cursor: pointer;
-    font-size: 18px;
+    font-size: 16px;
 }
 
 .meta-menu {
@@ -534,7 +545,7 @@ body {
     padding: 6px;
     box-shadow: 0 6px 18px rgba(0,0,0,0.5);
     z-index: 1200;
-    min-width: 140px;
+    min-width: 95px;
     display: block; /* visible by default; use [hidden] to hide */
 }
 
@@ -568,9 +579,12 @@ body {
 
 /* Show condensed UI on very small screens */
 @media (max-width: 480px) {
-    .post-meta-actions { display: none; }
-    /* also hide the more-specific header-scoped actions selector on small screens */
-    .post-header .post-meta-actions { display: none; }
+    /* keep upvotes visible but hide the action buttons/forms to conserve space */
+    .post-meta-actions { display: flex; gap: 8px; align-items: center; }
+    .post-meta-actions .meta-action-btn,
+    .post-meta-actions form.inline-form { display: none; }
+    /* keep upvotes (non-interactive) visible */
+    .post-meta-actions .post-upvotes { display: inline-flex; }
     .meta-menu-toggle { display: inline-flex; }
     /* ensure relative positioning so absolute menu aligns to post area */
     .post { position: relative; }
@@ -580,13 +594,13 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 25px;
+    height: 25px;
     background: var(--bg-tertiary);
     border-radius: 6px;
     text-decoration: none;
-    font-size: 16px;
-    transition: background 0.2s, transform 0.1s;
+    font-size: 14px;
+    transition: background 0.18s, transform 0.09s;
     border: none;
     cursor: pointer;
     color: inherit;
@@ -594,7 +608,7 @@ body {
 
 .meta-action-btn:hover {
     background: var(--accent);
-    transform: scale(1.1);
+    transform: scale(1.08);
 }
 
 .ban-btn:hover {
@@ -612,6 +626,30 @@ body {
 
 .inline-form {
     display: inline;
+}
+
+/* Truncation helper for header items */
+.post-meta-left .trunc {
+    display: inline-block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+
+.post-meta-left .meta-text {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-left: 6px;
+    flex-shrink: 1;
+}
+
+.post-meta-actions .post-upvotes {
+    color: var(--text-primary);
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-right: 6px;
+    font-weight: 600;
 }
 
 .post-author {

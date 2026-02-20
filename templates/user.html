@@ -56,9 +56,11 @@
                     <article class="post" data-post-id="{{ item.id }}">
                         <div class="post-header">
                             <div class="post-meta-left">
-                                <a href="{{ url_for('subreddit', name=item.subreddit) }}" class="subreddit-link-inline">r/{{ item.subreddit }}</a>
+                                <a href="{{ url_for('subreddit', name=item.subreddit) }}" class="subreddit-link-inline trunc">r/{{ item.subreddit }}</a>
+                                <span class="meta-text post-author trunc">u/{{ item.author }}</span>
                             </div>
                             <div class="post-meta-actions">
+                                <span class="meta-text post-upvotes">⬆️{{ item.score }}</span>
                                 <!-- user page shows fewer action buttons here -->
                             </div>
                             <button class="meta-menu-toggle" aria-haspopup="true" aria-expanded="false" title="Actions">☰</button>

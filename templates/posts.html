@@ -84,9 +84,11 @@
              style="cursor: pointer;">
         <div class="post-header">
             <div class="post-meta-left">
-                <a href="{{ url_for('subreddit', name=post.subreddit) }}" class="subreddit-link-inline">r/{{ post.subreddit }}</a>
+                <a href="{{ url_for('subreddit', name=post.subreddit) }}" class="subreddit-link-inline trunc">r/{{ post.subreddit }}</a>
+                <span class="meta-text post-author trunc">u/{{ post.author }}</span>
             </div>
             <div class="post-meta-actions">
+                <span class="meta-text post-upvotes">⬆️{{ post.score }}</span>
                 {% if current_user.is_authenticated %}
                     {% if post.subreddit in feed_pinned_subs %}
                     <form method="post" action="{{ url_for('unpin_subreddit', subreddit=post.subreddit) }}" class="inline-form">
@@ -350,8 +352,12 @@
         return `
             <article class="post" id="post-${index}" data-post-index="${index}" data-thumbnail="${thumbnail}" data-subreddit="${post.subreddit}" data-post-id="${post.id}" data-current-limit="0" data-increment="3" style="cursor: pointer;">
                 <div class="post-header">
-                    <div class="post-meta-left"><a href="/r/${post.subreddit}" class="subreddit-link-inline">r/${post.subreddit}</a></div>
+                    <div class="post-meta-left">
+                        <a href="/r/${post.subreddit}" class="subreddit-link-inline trunc">r/${post.subreddit}</a>
+                        <span class="meta-text post-author trunc">u/${post.author}</span>
+                    </div>
                     <div class="post-meta-actions">
+                        <span class="meta-text post-upvotes">⬆️${post.score}</span>
                         ${isAuthenticated && feedPinnedSubs.includes(post.subreddit) ? `
                         <form method="post" action="/unpin/${post.subreddit}" class="inline-form">
                             <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/${post.subreddit}">📍</button>
@@ -804,6 +810,8 @@
                 // populate and show
                 // Clone actions into the menu, then append readable labels from title attributes
                 menu.innerHTML = actions.innerHTML;
+                // Remove non-interactive upvotes from the dropdown menu (keep them visible in header)
+                menu.querySelectorAll('.post-upvotes').forEach(n => n.remove());
                 // For each action (button/link/form) append a text label using the title/aria-label
                 menu.querySelectorAll('.meta-action-btn, form.inline-form').forEach(node => {
                     if (node.tagName === 'FORM') {
