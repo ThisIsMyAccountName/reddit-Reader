@@ -639,9 +639,14 @@ body {
 
 .post-meta-left .meta-text {
     color: var(--text-secondary);
-    font-size: 14px;
     margin-left: 6px;
     flex-shrink: 1;
+}
+
+/* Subreddit inline link: slightly larger and bolder than the username */
+.post-meta-left .subreddit-link-inline {
+    font-size: 14px;
+    font-weight: 600;
 }
 
 .post-meta-actions .post-upvotes {
@@ -654,6 +659,8 @@ body {
 
 .post-author {
     color: var(--accent);
+    font-size: 12px;
+    font-weight: 500;
 }
 
 .post-selftext {
