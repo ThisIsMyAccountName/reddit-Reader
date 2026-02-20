@@ -992,13 +992,7 @@ body {
     max-width: 100%;
 }
 
-/* On very small screens make media full-width for easier tap targets */
-@media (max-width: 640px) {
-    .video-container {
-        width: 100%;
-        display: block;
-    }
-}
+
 
 .plyr-player {
     width: 100%;
@@ -1023,9 +1017,9 @@ body {
 }
 
 /* On small screens remove the 40vh cap so videos can size naturally */
-@media (max-width: 640px) {
+@media (max-width: 480px) {
     .post-video {
-        max-height: 60vh;
+        max-height: 80vh;
         height: auto;
     }
 }
