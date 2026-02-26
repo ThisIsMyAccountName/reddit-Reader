@@ -1671,31 +1671,7 @@ body {
     min-width: auto;
 }
 
-/* Settings Page */
-.settings-container {
-    max-width: 600px;
-    margin: 0 auto;
-}
-
-.settings-container h1 {
-    margin-bottom: 30px;
-}
-
-.settings-form {
-    background: var(--bg-secondary);
-    padding: 25px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    margin-bottom: 30px;
-}
-
-.settings-section {
-    background: var(--bg-secondary);
-    padding: 25px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    margin-bottom: 30px;
-}
+/* Settings Page (legacy rules removed; see bottom of file for updated styling) */
 
 .settings-section h2 {
     margin-bottom: 15px;
@@ -1788,7 +1764,8 @@ body {
     background: var(--bg-tertiary);
     border-radius: 6px;
     border: 1px solid var(--border);
-    cursor: grab;
+    /* container itself is not draggable now, only the handle */
+    cursor: default;
     transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
     user-select: none;
 }
@@ -1975,11 +1952,25 @@ body {
 
 .range-input {
     flex: 1;
-    height: 8px;
+    /* let browser choose appropriate height, or override with larger track */
+    height: 16px;
+    appearance: none;
     -webkit-appearance: none;
     background: var(--bg-tertiary);
     border-radius: 4px;
     outline: none;
+}
+
+/* track styling for webkit/misc */
+.range-input::-webkit-slider-runnable-track {
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+.range-input::-moz-range-track {
+    height: 8px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
 }
 
 .range-input::-webkit-slider-thumb {
@@ -2191,4 +2182,94 @@ body {
     margin-bottom: 5px;
     font-size: 14px;
 }
+
+/* settings page enhancements */
+.settings-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.settings-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 25px;
+}
+
+.settings-section h3 {
+    margin-top: 20px;
+    margin-bottom: 8px;
+}
+
+.add-sub-form input[type="text"] {
+    width: calc(100% - 120px);
+}
+
+.quick-add-subs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.quick-add-subs form {
+    margin: 0;
+}
+
+.ajax-setting {
+    cursor: pointer;
+}
+
+.settings-section h2 {
+    margin-bottom: 12px;
+    font-size: 1.25rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 8px;
+}
+
+.settings-section h3 {
+    margin-top: 18px;
+    margin-bottom: 8px;
+    font-size: 1.1rem;
+}
+
+.setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 15px;
+}
+.setting-row label {
+    flex: 1;
+    margin-right: 10px;
+}
+.setting-row .radio-group {
+    display: flex;
+    gap: 12px;
+}
+
+/* tweak forms inside settings */
+.add-sub-form input[type="text"] {
+    width: 60%;
+}
+.pinned-list, .banned-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+.pinned-item, .banned-item {
+    background: var(--bg-tertiary);
+    padding: 6px 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pinned-item-remove button,
+.banned-item-remove button {
+    margin-left: 4px;
+}
+
+/* keep previous spacing rule */
 

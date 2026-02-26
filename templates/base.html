@@ -44,6 +44,10 @@
     <div class="header-spacer"></div>
 
     <main class="container">
+        <script>
+            // make CSRF token available to client-side scripts
+            window.csrfToken = "{{ csrf_token() }}";
+        </script>
         {% block content %}{% endblock %}
     </main>
     

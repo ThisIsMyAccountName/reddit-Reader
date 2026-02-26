@@ -29,6 +29,8 @@ pip install -r requirements.txt
 
 ## Usage
 
+*Forms*: many pages now use Flask-WTF/WTForms for form handling and CSRF protection.  The settings page has been redesigned into a cohesive interface with immediate AJAX updates for display preferences (sidebar position, volume, speed and link behavior) and built-in rate limiting to prevent spamming toggles.  The dependency is listed in `requirements.txt`.
+
 ### Basic Usage
 
 Run the program:

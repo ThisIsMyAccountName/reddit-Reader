@@ -6,6 +6,7 @@ import os
 from datetime import timedelta
 
 from flask import Flask
+from flask_wtf import CSRFProtect
 from flask_login import LoginManager
 
 import config
@@ -21,11 +22,15 @@ from routes.settings_routes import register_settings_routes
 
 
 def create_app() -> Flask:
+
     app = Flask(__name__)
     app.secret_key = config.SECRET_KEY
     app.config["REMEMBER_COOKIE_DURATION"] = timedelta(
         seconds=config.REMEMBER_COOKIE_DURATION
     )
+    app.config['WTF_CSRF_TIME_LIMIT'] = None  # Optional: disables CSRF token expiration
+
+    csrf = CSRFProtect(app)
 
     login_manager = LoginManager()
     login_manager.init_app(app)

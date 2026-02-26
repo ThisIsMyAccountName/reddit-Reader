@@ -6,34 +6,35 @@
 <div class="settings-container">
     <h1>⚙️ Settings</h1>
     
+    <!-- subreddit-related preferences grouped together -->
     <div class="settings-section">
-        <h2>📌 Pinned Subreddits</h2>
+        <h2>Subreddit Preferences</h2>
+
+        <h3>📌 Pinned Subreddits</h3>
         <p class="form-help">Drag to reorder. First 5 shown in navigation.</p>
         
         <form method="post" class="add-sub-form">
-            <input type="hidden" name="action" value="add">
-            <input type="text" 
-                   name="sub" 
-                   class="form-input" 
-                   placeholder="Enter subreddit name (e.g., python)"
-                   autocomplete="off">
+            {{ add_form.hidden_tag() }}
+            {{ add_form.sub(class_="form-input", placeholder="Enter subreddit name (e.g., python)", autocomplete="off") }}
             <button type="submit" class="btn btn-primary">Add</button>
         </form>
         
         {% if pinned_subs %}
         <form method="post" id="reorder-form">
-            <input type="hidden" name="action" value="reorder">
-            <input type="hidden" name="order" id="pinned-order" value="{{ pinned_subs | join(',') }}">
+            {{ reorder_form.csrf_token }}
+            {{ reorder_form.intent }}
+            {{ reorder_form.order(id="pinned-order", value=(pinned_subs | join(','))) }}
         </form>
         <div class="pinned-list" id="pinned-list">
             {% for sub in pinned_subs %}
-            <div class="pinned-item" data-sub="{{ sub }}" draggable="true">
-                <span class="drag-handle">⋮⋮</span>
-                <a href="{{ url_for('subreddit', name=sub) }}" class="pinned-item-name">r/{{ sub }}</a>
-                <form method="post" class="pinned-item-remove">
-                    <input type="hidden" name="action" value="remove">
-                    <input type="hidden" name="sub" value="{{ sub }}">
-                    <button type="submit" class="btn btn-small btn-danger" title="Remove">✕</button>
+            <div class="pinned-item" data-sub="{{ sub }}">
+                <!-- only the handle is draggable to avoid interfering with clicks on links/buttons -->
+                <span class="drag-handle" draggable="true">⋮⋮</span>
+                <a href="{{ url_for('subreddit', name=sub) }}" class="pinned-item-name" draggable="false">r/{{ sub }}</a>
+                <form method="post" class="pinned-item-remove" draggable="false">
+                    {{ remove_form.hidden_tag() }}
+                    {{ remove_form.sub(value=sub) }}
+                    <button type="submit" class="btn btn-small btn-danger" title="Remove" draggable="false">✕</button>
                 </form>
             </div>
             {% endfor %}
@@ -41,10 +42,8 @@
         {% else %}
         <p class="text-secondary" style="margin-top: 15px;">No pinned subreddits yet. Add some above!</p>
         {% endif %}
-    </div>
-    
-    <div class="settings-section">
-        <h2>🚫 Banned Subreddits</h2>
+        
+        <h3>🚫 Banned Subreddits</h3>
         <p class="form-help">Posts from these subreddits are hidden from feeds like r/all.</p>
         
         {% if banned_subs %}
@@ -53,8 +52,8 @@
             <div class="banned-item">
                 <span class="banned-item-name">r/{{ sub }}</span>
                 <form method="post" class="banned-item-remove">
-                    <input type="hidden" name="action" value="unban">
-                    <input type="hidden" name="sub" value="{{ sub }}">
+                        {{ unban_form.hidden_tag() }}
+                    {{ unban_form.sub(value=sub) }}
                     <button type="submit" class="btn btn-small btn-success" title="Unban">Unban</button>
                 </form>
             </div>
@@ -66,81 +65,43 @@
     </div>
     
     <div class="settings-section">
-        <h2>🗂️ Sidebar Position</h2>
-        <p class="form-help">Choose where to display the mini navigation sidebar.</p>
-        
-        <form method="post" class="sidebar-form">
-            <input type="hidden" name="action" value="save_sidebar">
-            
-            <div class="form-row">
-                <label>Sidebar Position</label>
-                <div class="radio-group">
-                    <label class="radio-label">
-                        <input type="radio" name="sidebar_position" value="left" {% if sidebar_position == 'left' or not sidebar_position %}checked{% endif %}>
-                        <span>Left</span>
-                    </label>
-                    <label class="radio-label">
-                        <input type="radio" name="sidebar_position" value="right" {% if sidebar_position == 'right' %}checked{% endif %}>
-                        <span>Right</span>
-                    </label>
-                    <label class="radio-label">
-                        <input type="radio" name="sidebar_position" value="off" {% if sidebar_position == 'off' %}checked{% endif %}>
-                        <span>Off</span>
-                    </label>
-                </div>
-            </div>
-            
-            <button type="submit" class="btn btn-primary">Save Sidebar Settings</button>
-        </form>
-    </div>
-    
-    <div class="settings-section">
-        <h2>🎬 Playback Settings</h2>
-        <p class="form-help">Default volume and speed for video playback.</p>
-        
-        <form method="post" class="playback-form">
-            <input type="hidden" name="action" value="save_playback">
-            
-            <div class="form-row">
-                <label for="default_volume">Default Volume</label>
-                <div class="range-input-group">
-                    <input type="range" id="default_volume" name="default_volume" min="0" max="100" value="{{ default_volume or 5 }}" class="range-input">
-                    <span class="range-value" id="volume-value">{{ default_volume or 5 }}%</span>
-                </div>
-            </div>
-            
-            <div class="form-row">
-                <label for="default_speed">Default Speed</label>
-                <select id="default_speed" name="default_speed" class="form-select">
-                    <option value="0.25" {% if default_speed|float == 0.25 %}selected{% endif %}>0.25x</option>
-                    <option value="0.5" {% if default_speed|float == 0.5 %}selected{% endif %}>0.5x</option>
-                    <option value="0.75" {% if default_speed|float == 0.75 %}selected{% endif %}>0.75x</option>
-                    <option value="1.0" {% if default_speed|float == 1.0 or not default_speed %}selected{% endif %}>1x (Normal)</option>
-                    <option value="1.25" {% if default_speed|float == 1.25 %}selected{% endif %}>1.25x</option>
-                    <option value="1.5" {% if default_speed|float == 1.5 %}selected{% endif %}>1.5x</option>
-                    <option value="1.75" {% if default_speed|float == 1.75 %}selected{% endif %}>1.75x</option>
-                    <option value="2.0" {% if default_speed|float == 2.0 %}selected{% endif %}>2x</option>
-                </select>
-            </div>
-            
-            <button type="submit" class="btn btn-primary">Save Playback Settings</button>
-        </form>
-    </div>
-    
-    <div class="settings-section">
-        <h2>⚙️ Behavior</h2>
-        <p class="form-help">Miscellaneous display preferences.</p>
+        <h2>Display & Playback</h2>
+        <p class="form-help">Changes are saved immediately when you adjust controls.</p>
 
-        <form method="post" class="behavior-form">
-            <input type="hidden" name="action" value="save_behavior">
-            <div class="form-row">
-                <label>
-                    <input type="checkbox" name="title_links" {% if title_links %}checked{% endif %}>
-                    Make post titles clickable (open comments when clicked)
+        <div class="setting-row">
+            <label>Sidebar Position</label>
+            <div class="radio-group">
+                {% for subfield in sidebar_form.sidebar_position %}
+                <label class="radio-label">
+                    {{ subfield(class_="ajax-setting", data_field="sidebar_position") }}
+                    {{ subfield.label }}
                 </label>
+                {% endfor %}
             </div>
-            <button type="submit" class="btn btn-primary">Save Behavior Settings</button>
-        </form>
+        </div>
+
+        <div class="setting-row">
+            <label for="default_volume">Default Volume</label>
+            <div class="range-input-group">
+                <input type="range" id="default_volume" class="range-input ajax-setting" data-field="default_volume" min="0" max="100" value="{{ playback_form.default_volume.data or default_volume }}">
+                <span class="range-value" id="volume-value">{{ playback_form.default_volume.data or default_volume }}%</span>
+            </div>
+        </div>
+
+        <div class="setting-row">
+            <label for="default_speed">Default Speed</label>
+            <div class="range-input-group">
+                <input type="range" id="default_speed" class="range-input ajax-setting" data-field="default_speed" min="0.25" max="2.0" step="0.25" value="{{ playback_form.default_speed.data or default_speed }}">
+                <span class="range-value" id="speed-value">{{ playback_form.default_speed.data or default_speed }}x</span>
+            </div>
+        </div>
+
+        <div class="setting-row">
+            <label>
+                {{ behavior_form.title_links(class_="ajax-setting", data_field="title_links") }}
+                Make post titles clickable (open comments when clicked)
+            </label>
+        </div>
     </div>
     
     <div class="settings-section">
@@ -149,8 +110,8 @@
         <div class="quick-add-subs">
             {% for sub in ['all', 'popular', 'news', 'gaming', 'pics', 'videos', 'funny', 'askreddit', 'worldnews', 'technology', 'science', 'programming'] %}
             <form method="post" style="display: inline;">
-                <input type="hidden" name="action" value="add">
-                <input type="hidden" name="sub" value="{{ sub }}">
+                {{ add_form.hidden_tag() }}
+                {{ add_form.sub(type="hidden", value=sub) }}
                 <button type="submit" class="btn btn-small {% if sub in pinned_subs %}btn-disabled{% endif %}" {% if sub in pinned_subs %}disabled{% endif %}>{{ sub }}</button>
             </form>
             {% endfor %}
@@ -169,6 +130,44 @@
         volumeSlider.addEventListener('input', () => {
             volumeValue.textContent = volumeSlider.value + '%';
         });
+
+        // allow clicking percentage text to edit directly
+        volumeValue.addEventListener('click', () => {
+            const current = parseInt(volumeSlider.value, 10);
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = 0;
+            input.max = 100;
+            input.value = current;
+            input.style.width = '50px';
+            volumeValue.replaceWith(input);
+            input.focus();
+
+            const commit = () => {
+                let val = parseInt(input.value, 10);
+                if (isNaN(val)) val = current;
+                val = Math.max(0, Math.min(100, val));
+                volumeSlider.value = val;
+                sendSetting('default_volume', val);
+                volumeValue.textContent = val + '%';
+                input.replaceWith(volumeValue);
+            };
+            input.addEventListener('blur', commit);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    commit();
+                } else if (e.key === 'Escape') {
+                    input.replaceWith(volumeValue);
+                }
+            });
+        });
+    }
+    const speedSlider = document.getElementById('default_speed');
+    const speedValue = document.getElementById('speed-value');
+    if (speedSlider && speedValue) {
+        speedSlider.addEventListener('input', () => {
+            speedValue.textContent = speedSlider.value + 'x';
+        });
     }
     
     // Drag and drop reordering
@@ -180,11 +179,24 @@
         let draggedItem = null;
         
         pinnedList.addEventListener('dragstart', (e) => {
+            // only start a drag from the handle; ignore other clicks
+            const handle = e.target.closest('.drag-handle');
+            if (!handle) {
+                e.preventDefault();
+                return;
+            }
+
             const item = e.target.closest('.pinned-item');
             if (item) {
                 draggedItem = item;
                 item.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
+                // Firefox requires data to be set for drag to work
+                try {
+                    e.dataTransfer.setData('text/plain', '');
+                } catch (err) {
+                    // ignore if not supported
+                }
             }
         });
         
@@ -246,5 +258,43 @@
             reorderForm.submit();
         }
     }
+</script>
+
+<script>
+    // AJAX helper to post single-field updates
+    function sendSetting(field, value) {
+        fetch('/settings/update', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': window.csrfToken,
+            },
+            body: JSON.stringify({ field, value }),
+        })
+            .then((r) => r.json())
+            .then((data) => {
+                if (!data.success) {
+                    console.warn('setting update failed', data);
+                }
+            })
+            .catch((err) => console.error('error sending setting', err));
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.ajax-setting').forEach((el) => {
+            el.addEventListener('change', () => {
+                let v;
+                if (el.type === 'checkbox') {
+                    v = el.checked;
+                } else {
+                    v = el.value;
+                }
+                const field = el.getAttribute('data-field');
+                if (field) {
+                    sendSetting(field, v);
+                }
+            });
+        });
+    });
 </script>
 {% endblock %}

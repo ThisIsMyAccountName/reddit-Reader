@@ -360,10 +360,12 @@
                         <span class="meta-text post-upvotes">⬆️${post.score}</span>
                         ${isAuthenticated && feedPinnedSubs.includes(post.subreddit) ? `
                         <form method="post" action="/unpin/${post.subreddit}" class="inline-form">
+                            <input type="hidden" name="csrf_token" value="${window.csrfToken}">
                             <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/${post.subreddit}">📍</button>
                         </form>
                         ` : isAuthenticated && !pinnedSubs.includes(post.subreddit) ? `
                         <form method="post" action="/pin/${post.subreddit}" class="inline-form">
+                            <input type="hidden" name="csrf_token" value="${window.csrfToken}">
                             <button type="submit" class="meta-action-btn pin-btn" title="Pin r/${post.subreddit}">📌</button>
                         </form>
                         ` : ''}
@@ -372,6 +374,7 @@
                         <a href="${post.permalink}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
                         ${isAuthenticated && post.subreddit !== subreddit ? `
                         <form method="post" action="/ban/${post.subreddit}" class="inline-form" onsubmit="return confirm('Ban r/${post.subreddit}? Posts from this subreddit will be hidden.')">
+                            <input type="hidden" name="csrf_token" value="${window.csrfToken}">
                             <button type="submit" class="meta-action-btn ban-btn" title="Ban r/${post.subreddit}">🚫</button>
                         </form>
                         ` : ''}

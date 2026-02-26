@@ -7,6 +7,7 @@ from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash
 
 from models import User
+from forms import LoginForm, RegisterForm
 
 
 def register_auth_routes(app) -> None:
@@ -15,14 +16,11 @@ def register_auth_routes(app) -> None:
         if current_user.is_authenticated:
             return redirect(url_for("index"))
 
-        if request.method == "POST":
-            username = request.form.get("username", "").strip()
-            password = request.form.get("password", "")
-            remember = request.form.get("remember", False)
-
-            if not username or not password:
-                flash("Please fill in all fields.", "error")
-                return render_template("login.html")
+        form = LoginForm()
+        if form.validate_on_submit():
+            username = form.username.data.strip()
+            password = form.password.data
+            remember = form.remember.data
 
             user_data = User.get_by_username(username)
             if user_data and check_password_hash(user_data["password_hash"], password):
@@ -33,38 +31,28 @@ def register_auth_routes(app) -> None:
 
             flash("Invalid username or password.", "error")
 
-        return render_template("login.html")
+        return render_template("login.html", form=form)
 
     @app.route("/register", methods=["GET", "POST"])
     def register():
         if current_user.is_authenticated:
             return redirect(url_for("index"))
 
-        if request.method == "POST":
-            username = request.form.get("username", "").strip()
-            password = request.form.get("password", "")
-            confirm_password = request.form.get("confirm", "")
+        form = RegisterForm()
+        if form.validate_on_submit():
+            username = form.username.data.strip()
+            password = form.password.data
+            confirm_password = form.confirm.data
 
-            if not username or not password:
-                flash("Please fill in all fields.", "error")
-                return render_template("register.html")
-            if len(username) < 3:
-                flash("Username must be at least 3 characters.", "error")
-                return render_template("register.html")
-            if len(password) < 6:
-                flash("Password must be at least 6 characters.", "error")
-                return render_template("register.html")
             if password != confirm_password:
                 flash("Passwords do not match.", "error")
-                return render_template("register.html")
+            else:
+                if User.create(username, password):
+                    flash("Account created! Please log in.", "success")
+                    return redirect(url_for("login"))
+                flash("Username already exists.", "error")
 
-            if User.create(username, password):
-                flash("Account created! Please log in.", "success")
-                return redirect(url_for("login"))
-
-            flash("Username already exists.", "error")
-
-        return render_template("register.html")
+        return render_template("register.html", form=form)
 
     @app.route("/logout")
     @login_required
