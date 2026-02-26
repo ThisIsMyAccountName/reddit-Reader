@@ -32,7 +32,8 @@
                 <span class="drag-handle" draggable="true">⋮⋮</span>
                 <a href="{{ url_for('subreddit', name=sub) }}" class="pinned-item-name" draggable="false">r/{{ sub }}</a>
                 <form method="post" class="pinned-item-remove" draggable="false">
-                    {{ remove_form.hidden_tag() }}
+                    {{ remove_form.csrf_token }}
+                    {{ remove_form.intent }}
                     {{ remove_form.sub(value=sub) }}
                     <button type="submit" class="btn btn-small btn-danger" title="Remove" draggable="false">✕</button>
                 </form>
