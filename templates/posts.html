@@ -89,13 +89,15 @@
             </div>
             <div class="post-meta-actions">
                 <span class="meta-text post-upvotes">⬆️{{ post.score }}</span>
-                {% if current_user.is_authenticated %}
+                    {% if current_user.is_authenticated %}
                     {% if post.subreddit in feed_pinned_subs %}
                     <form method="post" action="{{ url_for('unpin_subreddit', subreddit=post.subreddit) }}" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/{{ post.subreddit }}">📍</button>
                     </form>
                     {% elif post.subreddit not in pinned_subs %}
                     <form method="post" action="{{ url_for('pin_subreddit', subreddit=post.subreddit) }}" class="inline-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="meta-action-btn pin-btn" title="Pin r/{{ post.subreddit }}">📌</button>
                     </form>
                     {% endif %}
@@ -104,6 +106,7 @@
                 <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="Reddit">📤</a>
                 {% if current_user.is_authenticated and post.subreddit != subreddit %}
                 <form method="post" action="{{ url_for('ban_subreddit', subreddit=post.subreddit) }}" class="inline-form" onsubmit="return confirm('Ban r/{{ post.subreddit }}? Posts from this subreddit will be hidden.')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="meta-action-btn ban-btn" title="Ban r/{{ post.subreddit }}">🚫</button>
                 </form>
                 {% endif %}
@@ -268,8 +271,8 @@
     const timeFilter = container.dataset.timeFilter || 'day';
     const commentsLimit = container.dataset.commentsLimit;
     const isAuthenticated = {{ 'true' if current_user.is_authenticated else 'false' }};
-    const pinnedSubs = {{ pinned_subs | tojson if pinned_subs else '[]' }};
-    const feedPinnedSubs = {{ feed_pinned_subs | tojson if feed_pinned_subs else '[]' }};
+    let pinnedSubs = {{ pinned_subs | tojson if pinned_subs else '[]' }};
+    let feedPinnedSubs = {{ feed_pinned_subs | tojson if feed_pinned_subs else '[]' }};
     const titleLinks = {{ 'true' if title_links else 'false' }};
     let after = container.dataset.after;
     let loading = false;
@@ -278,6 +281,30 @@
     
     const loadingIndicator = document.getElementById('loading-indicator');
     const noMoreIndicator = document.getElementById('no-more-posts');
+
+    // Update the top pinned-subreddits navigation when pins change
+    function refreshPinnedNav() {
+        const nav = document.querySelector('.subreddit-nav');
+        if (!nav) return;
+
+        if (isAuthenticated && Array.isArray(pinnedSubs) && pinnedSubs.length) {
+            let html = '';
+            pinnedSubs.forEach(sub => {
+                const active = (sub === subreddit) ? ' active' : '';
+                html += `<a href="/r/${encodeURIComponent(sub)}" class="subreddit-link${active}">r/${sub}</a>`;
+            });
+            if (!pinnedSubs.includes(subreddit)) {
+                html += `<span class="subreddit-link active">r/${subreddit}</span>`;
+            }
+            nav.innerHTML = html;
+        } else {
+            // fallback to default nav
+            let html = `<a href="/r/all" class="subreddit-link ${subreddit === 'all' ? 'active' : ''}">r/all</a>`;
+            html += `<a href="/r/popular" class="subreddit-link ${subreddit === 'popular' ? 'active' : ''}">r/popular</a>`;
+            if (subreddit && !['all', 'popular'].includes(subreddit)) html += `<span class="subreddit-link active">r/${subreddit}</span>`;
+            nav.innerHTML = html;
+        }
+    }
     
     // Create post HTML from post data
     function createPostHTML(post, index) {
@@ -551,6 +578,60 @@
             } else {
                 commentsContainer.hidden = true;
             }
+        }
+    });
+
+    // Intercept inline pin/unpin/ban form submissions and perform AJAX POSTs
+    container.addEventListener('submit', async (e) => {
+        const form = e.target;
+        if (!form || !form.classList.contains('inline-form')) return;
+        // Only handle pin/unpin/ban here
+        const action = form.getAttribute('action') || '';
+        if (!action.includes('/pin/') && !action.includes('/unpin/') && !action.includes('/ban/')) return;
+        e.preventDefault();
+
+        // visual feedback
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn ? submitBtn.textContent : null;
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = '…'; }
+
+        try {
+            const formData = new FormData(form);
+            const resp = await fetch(action, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': window.csrfToken },
+                body: new URLSearchParams(formData)
+            });
+
+            if (!resp.ok) throw new Error('Request failed');
+
+            // Update UI locally to avoid full reload
+            if (action.includes('/pin/')) {
+                const subreddit = action.split('/pin/').pop();
+                if (!feedPinnedSubs.includes(subreddit)) feedPinnedSubs.push(subreddit);
+                if (!pinnedSubs.includes(subreddit)) pinnedSubs.push(subreddit);
+                // convert form into unpin form
+                form.setAttribute('action', `/unpin/${subreddit}`);
+                if (submitBtn) { submitBtn.textContent = '📍'; submitBtn.title = `Unpin r/${subreddit}`; submitBtn.classList.remove('pin-btn'); submitBtn.classList.add('unpin-btn'); }
+                refreshPinnedNav();
+            } else if (action.includes('/unpin/')) {
+                const subreddit = action.split('/unpin/').pop();
+                feedPinnedSubs = feedPinnedSubs.filter(s => s !== subreddit);
+                pinnedSubs = pinnedSubs.filter(s => s !== subreddit);
+                form.setAttribute('action', `/pin/${subreddit}`);
+                if (submitBtn) { submitBtn.textContent = '📌'; submitBtn.title = `Pin r/${subreddit}`; submitBtn.classList.remove('unpin-btn'); submitBtn.classList.add('pin-btn'); }
+                refreshPinnedNav();
+            } else if (action.includes('/ban/')) {
+                const subreddit = action.split('/ban/').pop();
+                // remove posts from this subreddit from the DOM
+                document.querySelectorAll(`.post[data-subreddit="${subreddit}"]`).forEach(p => p.remove());
+            }
+        } catch (err) {
+            console.error('Inline action failed', err);
+            // fallback: full reload so the server state is reflected
+            window.location.reload();
+        } finally {
+            if (submitBtn) { submitBtn.disabled = false; if (originalText) submitBtn.textContent = originalText; }
         }
     });
 

@@ -53,7 +53,8 @@
             <div class="banned-item">
                 <span class="banned-item-name">r/{{ sub }}</span>
                 <form method="post" class="banned-item-remove">
-                        {{ unban_form.hidden_tag() }}
+                        {{ unban_form.csrf_token }}
+                        {{ unban_form.intent }}
                     {{ unban_form.sub(value=sub) }}
                     <button type="submit" class="btn btn-small btn-success" title="Unban">Unban</button>
                 </form>
