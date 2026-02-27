@@ -13,6 +13,9 @@ from services.comment_formatter import format_comment_tree
 
 
 def register_api_routes(app, reader) -> None:
+    # Simple in-process cache for autocomplete responses: {(q,limit): (ts, data)}
+    _autocomplete_cache = {}
+
     @app.route("/api/comments")
     def api_comments():
         try:
@@ -67,3 +70,34 @@ def register_api_routes(app, reader) -> None:
                 "comments_limit": config.TOP_COMMENTS_PER_POST,
             }
         )
+
+    @app.route("/api/subreddit_autocomplete")
+    def api_subreddit_autocomplete():
+        try:
+            q = (request.args.get("q") or "").strip()
+            if not q:
+                return jsonify({"results": []})
+
+            limit = int(request.args.get("limit", 8))
+
+            cache_key = (q.lower(), limit)
+            now = time.time()
+            # TTL 60s
+            cached = _autocomplete_cache.get(cache_key)
+            if cached and now - cached[0] < 60:
+                return jsonify({"results": cached[1]})
+
+            data = reader.fetch_subreddit_autocomplete(q, limit=limit)
+            if data is None:
+                data = []
+
+            _autocomplete_cache[cache_key] = (now, data)
+            # small delay to avoid hitting reddit too fast when used programmatically
+            time.sleep(config.RATE_LIMIT_DELAY)
+
+            return jsonify({"results": data})
+        except Exception as exc:
+            import traceback
+
+            traceback.print_exc()
+            return jsonify({"results": []}), 500

@@ -67,6 +67,70 @@ class RedditReader:
         params = {"limit": limit, "depth": 10, "showmore": False}
         return self._get_json(url, params=params)
 
+    def fetch_subreddit_autocomplete(self, query: str, limit: int = 10) -> List[Dict]:
+        """Call Reddit's subreddit autocomplete endpoint and return a
+        normalized list of small dicts: {name, title, subscribers}.
+        Uses the public reddit.com API with the configured User-Agent.
+        """
+        if not query:
+            return []
+
+        params = {"query": query, "limit": min(max(1, int(limit)), 100), "include_over_18": "true"}
+
+        # Try known variants of the endpoint. Some Reddit endpoints require a
+        # .json suffix; certain queries can return 404 on some endpoints.
+        candidate_urls = [
+            "https://www.reddit.com/api/subreddit_autocomplete_v2.json",
+            "https://www.reddit.com/api/subreddit_autocomplete.json",
+            "https://www.reddit.com/api/subreddit_autocomplete_v2",
+        ]
+
+        data = None
+        for url in candidate_urls:
+            try:
+                resp = self.session.get(url, headers=self.headers, params=params, timeout=10)
+                if resp.status_code == 429:
+                    time.sleep(2.0)
+                    resp = self.session.get(url, headers=self.headers, params=params, timeout=10)
+
+                # If 404, try next candidate silently
+                if resp.status_code == 404:
+                    continue
+
+                resp.raise_for_status()
+                data = resp.json()
+                break
+            except requests.exceptions.HTTPError as he:
+                # For non-404 HTTP errors, print once and stop
+                print(f"Error fetching autocomplete ({url}): {he}")
+                break
+            except requests.exceptions.RequestException as e:
+                # Network/timeout/etc — print and stop
+                print(f"Error fetching autocomplete ({url}): {e}")
+                break
+
+        results: List[Dict] = []
+        if not data:
+            return results
+
+        children = data.get("data", {}).get("children", []) if isinstance(data, dict) else []
+
+        for child in children:
+            d = child.get("data", {}) if isinstance(child, dict) else {}
+            display_name = d.get("display_name") or d.get("display_name_prefixed") or d.get("name") or ""
+            if display_name.startswith("r/"):
+                name = display_name.split("/", 1)[1]
+            else:
+                name = display_name
+
+            title = d.get("title") or d.get("public_description") or ""
+            subscribers = d.get("subscribers") or 0
+
+            if name:
+                results.append({"name": name, "title": title, "subscribers": subscribers})
+
+        return results
+
     # ------------------------------------------------------------------
     # Media extraction
     # ------------------------------------------------------------------

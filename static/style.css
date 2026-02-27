@@ -268,6 +268,47 @@ body {
     border-color: var(--accent);
 }
 
+/* Autocomplete dropdown for header search */
+.autocomplete-list {
+    position: absolute;
+    margin: 6px 0 0 0;
+    padding: 4px 0;
+    list-style: none;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    max-height: 320px;
+    overflow-y: auto;
+    width: 400px;
+    z-index: 120;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+}
+
+.autocomplete-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-left: 4px solid transparent;
+}
+
+.autocomplete-item.active,
+.autocomplete-item:hover {
+    background: var(--bg-tertiary);
+    border-left-color: var(--accent);
+}
+
+.autocomplete-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.autocomplete-meta {
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
 /* Subreddit Navigation */
 .subreddit-nav {
     display: flex;

@@ -11,13 +11,13 @@
         <h2>Subreddit Preferences</h2>
 
         <h3>📌 Pinned Subreddits</h3>
-        <p class="form-help">Drag to reorder. First 5 shown in navigation.</p>
         
         <form method="post" class="add-sub-form">
             {{ add_form.hidden_tag() }}
             {{ add_form.sub(class_="form-input", placeholder="Enter subreddit name (e.g., python)", autocomplete="off") }}
             <button type="submit" class="btn btn-primary">Add</button>
         </form>
+        <p class="form-help">Drag to reorder</p>
         
         {% if pinned_subs %}
         <form method="post" id="reorder-form">
