@@ -37,6 +37,10 @@ MAX_COMMENTS_DISPLAY = int(os.getenv("MAX_COMMENTS_DISPLAY", "10"))
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "10"))  # seconds
 MAX_POSTS_PER_REQUEST = int(os.getenv("MAX_POSTS_PER_REQUEST", "100"))  # Reddit's max
 
+# Autocomplete cache settings
+AUTOCOMPLETE_CACHE_TTL = int(os.getenv("AUTOCOMPLETE_CACHE_TTL", "60"))  # seconds
+AUTOCOMPLETE_CACHE_MAXSIZE = int(os.getenv("AUTOCOMPLETE_CACHE_MAXSIZE", "1024"))
+
 # Future: AI Summary settings (for when you add AI features)
 # AI_PROVIDER = "openai"  # or "anthropic"
 # AI_MODEL = "gpt-4"

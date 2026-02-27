@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from services.cache import ThreadSafeTTLCache
 
 from flask import jsonify, request
 from flask_login import current_user
@@ -13,8 +14,8 @@ from services.comment_formatter import format_comment_tree
 
 
 def register_api_routes(app, reader) -> None:
-    # Simple in-process cache for autocomplete responses: {(q,limit): (ts, data)}
-    _autocomplete_cache = {}
+    # Thread-safe TTL LRU cache for autocomplete responses
+    _autocomplete_cache = ThreadSafeTTLCache(maxsize=config.AUTOCOMPLETE_CACHE_MAXSIZE, ttl=config.AUTOCOMPLETE_CACHE_TTL)
 
     @app.route("/api/comments")
     def api_comments():
@@ -81,17 +82,13 @@ def register_api_routes(app, reader) -> None:
             limit = int(request.args.get("limit", 8))
 
             cache_key = (q.lower(), limit)
-            now = time.time()
-            # TTL 60s
             cached = _autocomplete_cache.get(cache_key)
-            if cached and now - cached[0] < 60:
-                return jsonify({"results": cached[1]})
+            if cached is not None:
+                return jsonify({"results": cached})
 
-            data = reader.fetch_subreddit_autocomplete(q, limit=limit)
-            if data is None:
-                data = []
+            data = reader.fetch_subreddit_autocomplete(q, limit=limit) or []
 
-            _autocomplete_cache[cache_key] = (now, data)
+            _autocomplete_cache.set(cache_key, data)
             # small delay to avoid hitting reddit too fast when used programmatically
             time.sleep(config.RATE_LIMIT_DELAY)
 
