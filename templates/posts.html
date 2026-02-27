@@ -291,33 +291,45 @@
             let html = '';
             pinnedSubs.forEach(sub => {
                 const active = (sub === subreddit) ? ' active' : '';
-                html += `<a href="/r/${encodeURIComponent(sub)}" class="subreddit-link${active}">r/${sub}</a>`;
+                html += `<a href="/r/${encodeURIComponent(sub)}" class="subreddit-link${active}">r/${escapeHTML(sub)}</a>`;
             });
-            if (!pinnedSubs.includes(subreddit)) {
-                html += `<span class="subreddit-link active">r/${subreddit}</span>`;
+            if (!pinned_subs.includes(subreddit)) {
+                html += `<span class="subreddit-link active">r/${escapeHTML(subreddit)}</span>`;
             }
             nav.innerHTML = html;
         } else {
             // fallback to default nav
             let html = `<a href="/r/all" class="subreddit-link ${subreddit === 'all' ? 'active' : ''}">r/all</a>`;
             html += `<a href="/r/popular" class="subreddit-link ${subreddit === 'popular' ? 'active' : ''}">r/popular</a>`;
-            if (subreddit && !['all', 'popular'].includes(subreddit)) html += `<span class="subreddit-link active">r/${subreddit}</span>`;
+            if (subreddit && !['all', 'popular'].includes(subreddit)) html += `<span class="subreddit-link active">r/${escapeHTML(subreddit)}</span>`;
             nav.innerHTML = html;
         }
     }
     
     // Create post HTML from post data
+    // escapeHTML used for client-side inserted fields to prevent XSS
+    function escapeHTML(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     function createPostHTML(post, index) {
-        // Simple HTML escape and newline to br
+        // Escape title/author/subreddit/permalink/url for safe insertion
+        const safeTitle = escapeHTML(post.title || '');
+        const safeAuthor = escapeHTML(post.author || '');
+        const safeSub = escapeHTML(post.subreddit || '');
+        const safePermalink = escapeHTML(post.permalink || '');
+        const safeUrl = escapeHTML(post.url || '');
+
+        // Simple HTML escape and newline to br for selftext
         const selftextRaw = post.selftext || '';
-        const selftext = selftextRaw
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;")
-            .replace(/\n/g, "<br>");
-            
+        const selftext = escapeHTML(selftextRaw).replace(/\n/g, '<br>');
+
         const score = post.score.toLocaleString();
         const numComments = post.num_comments.toLocaleString();
         
@@ -380,29 +392,29 @@
             <article class="post" id="post-${index}" data-post-index="${index}" data-thumbnail="${thumbnail}" data-subreddit="${post.subreddit}" data-post-id="${post.id}" data-current-limit="0" data-increment="3" style="cursor: pointer;">
                 <div class="post-header">
                     <div class="post-meta-left">
-                        <a href="/r/${post.subreddit}" class="subreddit-link-inline trunc">r/${post.subreddit}</a>
-                        <span class="meta-text post-author trunc">u/${post.author}</span>
+                        <a href="/r/${encodeURIComponent(post.subreddit)}" class="subreddit-link-inline trunc">r/${safeSub}</a>
+                        <span class="meta-text post-author trunc">u/${safeAuthor}</span>
                     </div>
                     <div class="post-meta-actions">
                         <span class="meta-text post-upvotes">⬆️${post.score}</span>
                         ${isAuthenticated && feedPinnedSubs.includes(post.subreddit) ? `
-                        <form method="post" action="/unpin/${post.subreddit}" class="inline-form">
+                        <form method="post" action="/unpin/${encodeURIComponent(post.subreddit)}" class="inline-form">
                             <input type="hidden" name="csrf_token" value="${window.csrfToken}">
-                            <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/${post.subreddit}">📍</button>
+                            <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/${safeSub}">📍</button>
                         </form>
                         ` : isAuthenticated && !pinnedSubs.includes(post.subreddit) ? `
-                        <form method="post" action="/pin/${post.subreddit}" class="inline-form">
+                        <form method="post" action="/pin/${encodeURIComponent(post.subreddit)}" class="inline-form">
                             <input type="hidden" name="csrf_token" value="${window.csrfToken}">
-                            <button type="submit" class="meta-action-btn pin-btn" title="Pin r/${post.subreddit}">📌</button>
+                            <button type="submit" class="meta-action-btn pin-btn" title="Pin r/${safeSub}">📌</button>
                         </form>
                         ` : ''}
-                        ${!post.is_self ? `<a href="${post.url}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>` : ''}
-                        <a href="/r/${post.subreddit}/comments/${post.id}/share" class="meta-action-btn share-btn" data-share-path="/r/${post.subreddit}/comments/${post.id}/share" title="Share" rel="noopener noreferrer">🔁</a>
-                        <a href="${post.permalink}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
+                        ${!post.is_self ? `<a href="${safeUrl}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>` : ''}
+                        <a href="/r/${encodeURIComponent(post.subreddit)}/comments/${encodeURIComponent(post.id)}/share" class="meta-action-btn share-btn" data-share-path="/r/${encodeURIComponent(post.subreddit)}/comments/${encodeURIComponent(post.id)}/share" title="Share" rel="noopener noreferrer">🔁</a>
+                        <a href="${safePermalink}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
                         ${isAuthenticated && post.subreddit !== subreddit ? `
-                        <form method="post" action="/ban/${post.subreddit}" class="inline-form" onsubmit="return confirm('Ban r/${post.subreddit}? Posts from this subreddit will be hidden.')">
+                        <form method="post" action="/ban/${encodeURIComponent(post.subreddit)}" class="inline-form" onsubmit="return confirm('Ban r/${safeSub}? Posts from this subreddit will be hidden.')">
                             <input type="hidden" name="csrf_token" value="${window.csrfToken}">
-                            <button type="submit" class="meta-action-btn ban-btn" title="Ban r/${post.subreddit}">🚫</button>
+                            <button type="submit" class="meta-action-btn ban-btn" title="Ban r/${safeSub}">🚫</button>
                         </form>
                         ` : ''}
                     </div>
@@ -411,7 +423,7 @@
                 </div>
 
                 <h2 class="post-title">
-                        ${titleLinks ? `<a href="/r/${post.subreddit}/comments/${post.id}">${post.title}</a>` : `<span class="post-title-text">${post.title}</span>`}
+                        ${titleLinks ? `<a href="/r/${encodeURIComponent(post.subreddit)}/comments/${encodeURIComponent(post.id)}">${safeTitle}</a>` : `<span class="post-title-text">${safeTitle}</span>`}
                 </h2>
                 
                 ${mediaHTML}
@@ -444,9 +456,19 @@
         const isCollapsed = collapsedIds.has(comment.id);
         const collapsedClass = isCollapsed ? 'collapsed' : '';
         const author = comment.author || '[deleted]';
+        const displayAuthor = escapeHTML(author);
         const authorHTML = author !== '[deleted]'
-            ? `<a href="/u/${encodeURIComponent(author)}" class="comment-author">u/${author}</a>`
-            : `<span class="comment-author">u/${author}</span>`;
+            ? `<a href="/u/${encodeURIComponent(author)}" class="comment-author">u/${displayAuthor}</a>`
+            : `<span class="comment-author">u/${displayAuthor}</span>`;
+
+        // Use server-provided formatted_body if present (assumed sanitized server-side);
+        // otherwise escape raw body text here.
+        let bodyHTML = '';
+        if (comment.formatted_body) {
+            bodyHTML = comment.formatted_body;
+        } else {
+            bodyHTML = escapeHTML(comment.body || '').replace(/\n/g, '<br>');
+        }
         
         // Use regular comment classes to inherit correct styling (blue border, etc.)
         // Added 'comment-reply' class if it's a child (detected by lack of depth property or handle externally? 
@@ -458,7 +480,7 @@
                         ${authorHTML}
                         <span class="comment-score">⬆️ ${comment.score.toLocaleString()}</span>
                     </div>
-                    <div class="comment-body">${comment.formatted_body || comment.body}</div>
+                    <div class="comment-body">${bodyHTML}</div>
                     ${repliesHTML}
                 </div>
             </div>
@@ -716,7 +738,8 @@
         
         let content;
         if (isValidThumb) {
-            content = `<img src="${thumbnail}" alt="" class="mini-nav-thumb">`;
+            const safeThumb = escapeHTML(thumbnail);
+            content = `<img src="${safeThumb}" alt="" class="mini-nav-thumb">`;
         } else if (post.is_self) {
             content = `<div class="mini-nav-placeholder">📝</div>`;
         } else {

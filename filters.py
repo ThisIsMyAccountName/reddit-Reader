@@ -4,6 +4,7 @@ Jinja2 template filters.
 
 import html
 import re
+from urllib.parse import urlparse
 
 
 def format_content(text: str) -> str:
@@ -29,9 +30,14 @@ def format_content(text: str) -> str:
 
     # Reddit images: ![img](url) - unescape the URL to handle &amp; properly
     def _replace_image(match: re.Match) -> str:
-        url = html.unescape(match.group(1))
+        url = html.unescape(match.group(1)).strip()
+        parsed = urlparse(url)
+        # Only allow http(s) URLs for image embeds
+        if parsed.scheme not in ("http", "https"):
+            return match.group(0)
+        safe_url = html.escape(url, quote=True)
         return (
-            f'<img src="{url}" alt="Image" class="comment-media" '
+            f'<img src="{safe_url}" alt="Image" class="comment-media" '
             'style="max-width:100%;border-radius:4px;margin:10px 0;" loading="lazy">'
         )
     
@@ -41,11 +47,14 @@ def format_content(text: str) -> str:
     # Use a negative lookbehind to avoid matching URLs that are immediately
     # preceded by '(' which indicates they are inside a markdown link [text](url).
     def _replace_bare_image(match: re.Match) -> str:
-        url = html.unescape(match.group(1))
+        url = html.unescape(match.group(1)).strip()
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return match.group(0)
         if re.search(r"\.(?:mp4|webm|ogv|mov|m4v)(?:[\?#].*)?$", url, re.IGNORECASE):
             return (
                 '<video class="comment-media" controls playsinline preload="metadata" '
-                f'src="{url}"></video>'
+                f'src="{html.escape(url, quote=True)}"></video>'
             )
         # Treat preview.redd.it and common image extensions as images
         if (
@@ -53,7 +62,7 @@ def format_content(text: str) -> str:
             or re.search(r"\.(?:png|jpe?g|gif|webp|bmp)(?:[\?#].*)?$", url, re.IGNORECASE)
         ):
             return (
-                f'<img src="{url}" alt="Image" class="comment-media" '
+                f'<img src="{html.escape(url, quote=True)}" alt="Image" class="comment-media" '
                 'style="max-width:100%;border-radius:4px;margin:10px 0;" loading="lazy">'
             )
         # If it doesn't look like an image, leave the raw URL text (it will be
@@ -129,8 +138,13 @@ def _apply_inline_formatting(text: str) -> str:
     # Links: [text](url) - unescape the URL to handle &amp; properly
     def _replace_link(match: re.Match) -> str:
         link_text = match.group(1)
-        url = html.unescape(match.group(2))
-        return f'<a href="{url}" target="_blank" style="color:#4a9eff;">{link_text}</a>'
+        url = html.unescape(match.group(2)).strip()
+        parsed = urlparse(url)
+        # Only allow http(s) links; otherwise render as plain text
+        if parsed.scheme not in ("http", "https"):
+            return html.escape(match.group(0))
+        safe_url = html.escape(url, quote=True)
+        return f'<a href="{safe_url}" target="_blank" style="color:#4a9eff;">{link_text}</a>'
     
     text = re.sub(
         r"\[([^\]]+)\]\(([^)]+)\)",
