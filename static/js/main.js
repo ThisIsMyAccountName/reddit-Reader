@@ -325,9 +325,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Initialize videos, galleries and media resizers
+    // Initialize videos and media resizers
     initVideoControls(document);
-    initGalleryLayout(document);
     initMediaResizers(document);
 });
 
@@ -335,39 +334,114 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('newPostsAdded', (event) => {
     const container = event.detail?.container || document;
     initVideoControls(container);
-    initGalleryLayout(container);
     initMediaResizers(container);
 });
 
-// Gallery layout - center images if they don't overflow
-function initGalleryLayout(rootElement) {
-    rootElement.querySelectorAll('.gallery-scroll').forEach(scroll => {
-        // Check if content overflows
-        const checkOverflow = () => {
-            if (scroll.scrollWidth > scroll.clientWidth) {
-                scroll.classList.add('overflow');
-            } else {
-                scroll.classList.remove('overflow');
-            }
-        };
-        
-        // Check on load and when images load
-        checkOverflow();
-        scroll.querySelectorAll('img').forEach(img => {
-            if (img.complete) {
-                checkOverflow();
-            } else {
-                img.addEventListener('load', checkOverflow);
-            }
-        });
-        
-        // Check on resize
-        if (!scroll.dataset.resizeObserved) {
-            scroll.dataset.resizeObserved = 'true';
-            new ResizeObserver(checkOverflow).observe(scroll);
+// Gallery expand: click the fade overlay / badge to expand
+document.addEventListener('click', (e) => {
+    const fade = e.target.closest('.gallery-fade');
+    if (!fade) return;
+
+    const gallery = fade.closest('.gallery');
+    if (!gallery || gallery.classList.contains('expanded')) return;
+
+    e.stopPropagation();
+    expandGallery(gallery);
+}, true);
+
+// Gallery collapse: click the "Show less" bar to collapse
+document.addEventListener('click', (e) => {
+    const collapse = e.target.closest('.gallery-collapse');
+    if (!collapse) return;
+
+    const gallery = collapse.closest('.gallery');
+    if (!gallery || !gallery.classList.contains('expanded')) return;
+
+    e.stopPropagation();
+    collapseGallery(gallery);
+}, true);
+
+// Smooth expand: measure real height, animate max-height, then set to none
+function expandGallery(gallery) {
+    // Record scroll position so we can keep the gallery top in place
+    const rect = gallery.getBoundingClientRect();
+    const topBefore = rect.top;
+
+    // Temporarily remove max-height to measure full content height
+    gallery.style.transition = 'none';
+    gallery.style.maxHeight = 'none';
+    const fullHeight = gallery.scrollHeight;
+    // Restore collapsed max-height instantly
+    gallery.style.maxHeight = '';
+    // Force reflow so the browser registers the starting value
+    void gallery.offsetHeight;
+    // Now animate to the full height
+    gallery.style.transition = '';
+    gallery.style.maxHeight = fullHeight + 'px';
+
+    gallery.classList.add('expanded');
+
+    // Hide the fade overlay (collapse bar is shown via CSS .expanded)
+    const fade = gallery.querySelector('.gallery-fade');
+    if (fade) fade.hidden = true;
+
+    // After transition, remove max-height so resized images aren't clipped
+    const onEnd = () => {
+        gallery.removeEventListener('transitionend', onEnd);
+        if (gallery.classList.contains('expanded')) {
+            gallery.style.maxHeight = 'none';
         }
-    });
+    };
+    gallery.addEventListener('transitionend', onEnd);
+
+    // Keep the gallery top at the same viewport position
+    const topAfter = gallery.getBoundingClientRect().top;
+    if (Math.abs(topAfter - topBefore) > 2) {
+        window.scrollBy(0, topAfter - topBefore);
+    }
+
+    // Init resizers on newly-visible images
+    initMediaResizers(gallery);
 }
+
+// Smooth collapse: animate max-height back to CSS default, then scroll into view
+function collapseGallery(gallery) {
+    // Get current expanded height
+    const fullHeight = gallery.scrollHeight;
+    // Set explicit max-height so transition has a starting point
+    gallery.style.transition = 'none';
+    gallery.style.maxHeight = fullHeight + 'px';
+    void gallery.offsetHeight;
+    // Now animate back to collapsed height (CSS value)
+    gallery.style.transition = '';
+    gallery.style.maxHeight = '';
+
+    gallery.classList.remove('expanded');
+
+    // Show the fade overlay (collapse bar hides via CSS removing .expanded)
+    const fade = gallery.querySelector('.gallery-fade');
+    if (fade) fade.hidden = false;
+
+    // Calculate final scroll position based on the known collapsed max-height (650px)
+    // We compute this immediately since we know the gallery top won't move.
+    const galleryTop = gallery.getBoundingClientRect().top + window.scrollY;
+    const collapsedHeight = 650; // matches CSS max-height
+    const peekAmount = 240; // px of gallery visible at top of viewport
+    const scrollTarget = galleryTop + collapsedHeight - peekAmount;
+    // Delay slightly so the collapse animation has started and the page has reflowed
+    setTimeout(() => {
+        window.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+    }, 50);
+}
+
+// Allow ESC to collapse any expanded galleries
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+        document.querySelectorAll('.gallery.expanded').forEach(gallery => {
+            collapseGallery(gallery);
+        });
+    }
+});
 
 // Global Video Manager to ensure only one video plays at a time (the most visible one)
 const VideoManager = {
@@ -836,30 +910,15 @@ function initVideoControls(rootElement) {
 
 // Media resizer: allow click-and-drag resizing anywhere on media elements
 function initMediaResizers(rootElement) {
-    // Capture-phase click suppressor to prevent clicks right after a resize
-    if (!window.__mediaResizeClickSuppressorAdded) {
-        window.__mediaResizeClickSuppressorAdded = true;
-        document.addEventListener('click', (e) => {
-            if (window.__suppressClickUntil && Date.now() < window.__suppressClickUntil) {
-                e.stopPropagation();
-                e.preventDefault();
-            }
-        }, true); // capture
-    }
-
     rootElement.querySelectorAll('.post-media, .post-image, .post-video, .gallery-image, .comment-body img, .comment-body video').forEach(el => {
         // Determine the clickable/draggable target: prefer image or video element
         const target = el.classList && el.classList.contains('post-media') ? (el.querySelector('img') || el.querySelector('video')) : el;
         if (!target) return;
 
-        // Skip attaching resizer/drag handlers for preview elements (we don't want preview drags to resize)
-        if (el.closest && el.closest('.gallery-preview')) return;
-        if (target.closest && target.closest('.gallery-preview')) return;
-
-        // Prefer per-image container for gallery full view so each image resizes independently
+        // For gallery images, use the .gallery-item wrapper so each image resizes independently
         let container = null;
-        if (target.closest && target.closest('.gallery-full')) {
-            container = target.closest('.gallery-item') || target.parentElement;
+        if (target.closest && target.closest('.gallery-item')) {
+            container = target.closest('.gallery-item');
         }
         if (!container) {
             container = target.closest('.post-media') || target.closest('.video-container') || target.parentElement;
@@ -867,8 +926,10 @@ function initMediaResizers(rootElement) {
         if (!container || container.dataset.resizeInit) return;
         container.dataset.resizeInit = 'true';
 
-        // Do not lift CSS caps on init. Ensure default rendering fits container
-        if (!container.dataset.wasResized) {
+        // Do not lift CSS caps on init. Ensure default rendering fits container.
+        // Skip for gallery images — their CSS width (50%) should be preserved.
+        const isGalleryImage = target.classList && target.classList.contains('gallery-image');
+        if (!container.dataset.wasResized && !isGalleryImage) {
             try {
                 target.style.width = '100%';
                 target.style.height = 'auto';
@@ -903,35 +964,24 @@ function initMediaResizers(rootElement) {
             startY = downY;
             e.preventDefault();
             e.stopPropagation();
-            // Only left button
-            const rect = container.getBoundingClientRect();
+            // For gallery images, use the target (img) rect so startWidth matches
+            // the rendered image size, not the full-width .gallery-item container.
+            const sizeEl = isGalleryImage ? target : container;
+            const rect = sizeEl.getBoundingClientRect();
             startWidth = rect.width;
             startHeight = rect.height || target.getBoundingClientRect().height;
             const nat = getNatural();
             naturalW = nat.nw || startWidth;
             naturalH = nat.nh || startHeight;
-            // Save pre-resize inline styles to restore if user aborts resize
-            const _preStyles = {
-                targetMaxWidth: target.style.maxWidth,
-                targetMaxHeight: target.style.maxHeight,
-                targetWidth: target.style.width,
-                targetHeight: target.style.height,
-                containerWidth: container.style.width,
-                containerHeight: container.style.height,
-                containerOverflow: container.style.overflow
-            };
-            // Compute a stable cap based on the bounding post container (account for padding)
+            // Compute a stable cap based on the bounding post container
             const boundingAncestor = container.closest('.comment') || container.closest('.post') || container.closest('.post-detail') || container.closest('.main-content') || document.body;
             const bRect = boundingAncestor.getBoundingClientRect();
             const bStyle = window.getComputedStyle(boundingAncestor);
             const padLeft = parseFloat(bStyle.paddingLeft) || 0;
             const padRight = parseFloat(bStyle.paddingRight) || 0;
-            // Keep a small margin (20px) from the bounding ancestor edges
             availableMaxWidth = Math.max(100, Math.round(bRect.width - padLeft - padRight - 20));
-            // Save current box-sizing and set box-sizing to border-box to avoid parent growth
             try {
                 container.style.boxSizing = 'border-box';
-                // Lift caps so user can grow up to allowed max during resize
                 target.style.maxWidth = availableMaxWidth + 'px';
                 target.style.maxHeight = 'none';
                 container.style.overflow = 'hidden';
@@ -940,9 +990,7 @@ function initMediaResizers(rootElement) {
         };
 
         const onMouseDown = (e) => {
-            // Only left button
             if (e.button !== 0) return;
-            // Ignore dragging from controls
             if (e.target.closest('.video-controls') || e.target.closest('button') || e.target.closest('input')) return;
             isMouseDown = true;
             downX = e.clientX;
@@ -961,24 +1009,16 @@ function initMediaResizers(rootElement) {
             const dx = e.clientX - startX;
             const dy = e.clientY - startY;
 
-            // Recompute natural sizes if available (videos may report after metadata)
             const nat = getNatural();
             const nw = nat.nw || naturalW || startWidth;
             const nh = nat.nh || naturalH || startHeight;
-
-            // Decide whether user is resizing horizontally or vertically (use dominant axis)
-            // Use the availableMaxWidth computed at mousedown
             const maxAllowedWidth = availableMaxWidth || (container.closest('.post') || document.body).getBoundingClientRect().width - 20;
-
-            // Compute a max height corresponding to the allowed max width (preserve aspect)
             const maxAllowedHeight = (nw && nh && maxAllowedWidth) ? Math.max(50, Math.round(maxAllowedWidth * (nh / nw))) : null;
 
             if (Math.abs(dy) > Math.abs(dx)) {
-                // Vertical dominant: scale based on natural height to preserve aspect
                 let desiredHeight = Math.max(50, Math.round(startHeight + dy));
                 let scale = nh ? desiredHeight / nh : desiredHeight / startHeight;
                 let newWidth = Math.max(50, Math.round(nw * scale));
-                // If width exceeds cap, clamp width and recompute height from capped width
                 if (newWidth > maxAllowedWidth) {
                     newWidth = maxAllowedWidth;
                     scale = nw ? (newWidth / nw) : (desiredHeight / startHeight);
@@ -987,16 +1027,13 @@ function initMediaResizers(rootElement) {
                 }
                 container.style.width = newWidth + 'px';
                 container.style.height = desiredHeight + 'px';
-                // Force the media element to the explicit pixel size so it visually scales
                 target.style.width = newWidth + 'px';
                 target.style.height = desiredHeight + 'px';
             } else {
-                // Horizontal dominant: scale based on natural width
                 const desiredWidthRaw = Math.max(50, Math.round(startWidth + dx));
                 const desiredWidth = Math.min(desiredWidthRaw, maxAllowedWidth);
                 const scale = nw ? desiredWidth / nw : desiredWidth / startWidth;
                 let newHeight = Math.max(50, Math.round(nh * scale));
-                // If width reached cap, also ensure height doesn't exceed maxAllowedHeight
                 if (desiredWidth >= maxAllowedWidth && maxAllowedHeight) {
                     newHeight = Math.min(newHeight, maxAllowedHeight);
                 }
@@ -1015,14 +1052,10 @@ function initMediaResizers(rootElement) {
             if (!isResizing) return;
             isResizing = false;
             document.body.style.cursor = '';
-            // Suppress the next click globally for a short window
-            window.__suppressClickUntil = Date.now() + 300;
-            // If the user didn't change size (click only), try to restore pre-resize styles
             const rect = container.getBoundingClientRect();
-            const widthChanged = Math.abs(rect.width - startWidth) > 2 || Math.abs(rect.height - startHeight) > 2;
-            if (!widthChanged) {
+            const sizeChanged = Math.abs(rect.width - startWidth) > 2 || Math.abs(rect.height - startHeight) > 2;
+            if (!sizeChanged) {
                 try {
-                    // Restore default responsive behavior
                     target.style.maxWidth = '';
                     target.style.maxHeight = '';
                     target.style.width = '';
@@ -1032,86 +1065,22 @@ function initMediaResizers(rootElement) {
                     container.style.overflow = '';
                 } catch (err) {}
             } else {
-                // Keep explicit sizes and mark as resized
                 container.dataset.wasResized = 'true';
+                // Signal handlers to ignore the next click after a resize
+                const gallery = container.closest('.gallery');
+                if (gallery) gallery.dataset.didResize = 'true';
+                window.__didMediaResize = true;
             }
         };
 
         target.addEventListener('mousedown', onMouseDown);
-        target.addEventListener('dragstart', (e) => {
-            e.preventDefault();
-        });
+        target.addEventListener('dragstart', (e) => { e.preventDefault(); });
         document.addEventListener('mousemove', onMouseMove);
         document.addEventListener('mouseup', onMouseUp);
 
-        // Avoid stopping propagation for gallery preview images so preview clicks reach the preview handler
-        if (!target.closest || !target.closest('.gallery-preview')) {
-            // Always stopPropagation for media clicks to avoid toggling comments on full media
-            target.addEventListener('click', (e) => {
-                e.stopPropagation();
-            });
-        }
+        // Stop propagation for media clicks to prevent toggling comments
+        target.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
     });
 }
-
-// Click handler for gallery preview -> toggle inline expanded gallery
-// Use capture so we run before container click handlers (which can open comments)
-document.addEventListener('click', (e) => {
-    const preview = e.target.closest && e.target.closest('.gallery-preview');
-    if (!preview) return;
-
-    // Prevent bubbling to post expansion handlers
-    e.stopPropagation();
-
-    const post = preview.closest('.post');
-    if (!post) return;
-
-    const isExpanded = post.classList.toggle('gallery-expanded');
-    // Toggle aria
-    preview.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
-
-    const full = post.querySelector('.gallery-full');
-    if (isExpanded) {
-        if (full) full.removeAttribute('hidden');
-        // initialize layout for the full gallery and media resizers
-        initGalleryLayout(post);
-        initMediaResizers(post);
-        // NOTE: opening the gallery should NOT load or show comments.
-    } else {
-        if (full) full.setAttribute('hidden', '');
-    }
-}, true); // capture
-
-// Clicking inside the expanded full gallery should collapse it (capture phase to catch clicks even if media stopPropagation)
-document.addEventListener('click', (e) => {
-    const full = e.target.closest && e.target.closest('.gallery-full');
-    if (!full) return;
-
-    const post = full.closest && full.closest('.post');
-    if (!post || !post.classList.contains('gallery-expanded')) return;
-
-    // Ignore clicks on interactive controls
-    if (e.target.closest && e.target.closest('a, button, input, select, .video-controls, .search-form, .comment')) {
-        return;
-    }
-
-    // Collapse
-    post.classList.remove('gallery-expanded');
-    full.setAttribute('hidden', '');
-    const preview = post.querySelector('.gallery-preview');
-    if (preview) preview.setAttribute('aria-expanded', 'false');
-    e.stopPropagation();
-}, true); // capture
-
-// Allow ESC to close any expanded galleries
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' || e.key === 'Esc') {
-        document.querySelectorAll('.post.gallery-expanded').forEach(post => {
-            post.classList.remove('gallery-expanded');
-            const full = post.querySelector('.gallery-full');
-            if (full) full.setAttribute('hidden', '');
-            const preview = post.querySelector('.gallery-preview');
-            if (preview) preview.setAttribute('aria-expanded', 'false');
-        });
-    }
-});

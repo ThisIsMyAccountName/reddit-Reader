@@ -26,28 +26,20 @@
     </div>
 </div>
 {% elif p.gallery_urls and p.gallery_urls|length > 0 %}
-<div class="post-media gallery">
-    <div class="gallery-preview" tabindex="0" role="button" aria-expanded="false">
-        <div class="gallery-preview-main">
-            <img class="gallery-image preview-main" src="{{ p.gallery_urls[0] }}" alt="Gallery image" loading="lazy">
-        </div>
-        {% if p.gallery_urls|length > 1 %}
-        <div class="gallery-preview-peek">
-            <img class="gallery-image preview-peek" src="{{ p.gallery_urls[1] }}" alt="Gallery image peek" loading="lazy">
-            {% if p.gallery_urls|length > 2 %}
-            <div class="gallery-more-count">+{{ p.gallery_urls|length - 1 }}</div>
-            {% endif %}
-        </div>
-        {% endif %}
+<div class="post-media gallery" data-gallery-count="{{ p.gallery_urls|length }}">
+    {% for url in p.gallery_urls %}
+    <div class="gallery-item">
+        <img class="gallery-image" src="{{ url }}" alt="Gallery image {{ loop.index }}" loading="lazy">
     </div>
-
-    <div class="gallery-scroll gallery-full" hidden>
-        {% for url in p.gallery_urls %}
-        <div class="gallery-item">
-            <img class="gallery-image" src="{{ url }}" alt="Gallery image" loading="lazy">
-        </div>
-        {% endfor %}
+    {% endfor %}
+    {% if p.gallery_urls|length > 1 %}
+    <div class="gallery-fade">
+        <span class="gallery-badge">▼ {{ p.gallery_urls|length - 1 }} more image{{ 's' if p.gallery_urls|length - 1 > 1 else '' }}</span>
     </div>
+    <div class="gallery-collapse">
+        <span class="gallery-badge">▲ Show less</span>
+    </div>
+    {% endif %}
 </div>
 {% elif p.image_url %}
 <div class="post-media">

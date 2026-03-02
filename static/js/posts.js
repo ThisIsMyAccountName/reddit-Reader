@@ -128,28 +128,23 @@
                     </div>
                 </div>`;
         } else if (post.gallery_urls && post.gallery_urls.length > 0) {
-            const previewMain = post.gallery_urls[0];
-            const previewPeek = post.gallery_urls.length > 1 ? post.gallery_urls[1] : null;
-            const galleryItems = post.gallery_urls.map(url => `
+            const galleryItems = post.gallery_urls.map((url, i) => `
                 <div class="gallery-item">
-                    <img class="gallery-image" src="${url}" alt="Gallery image" loading="lazy">
+                    <img class="gallery-image" src="${url}" alt="Gallery image ${i + 1}" loading="lazy">
                 </div>
             `).join('');
+            const moreCount = post.gallery_urls.length - 1;
             mediaHTML = `
-                <div class="post-media gallery">
-                    <div class="gallery-preview" tabindex="0" role="button" aria-expanded="false">
-                        <div class="gallery-preview-main">
-                            <img class="gallery-image preview-main" src="${previewMain}" alt="Gallery image" loading="lazy">
-                        </div>
-                        ${previewPeek ? `
-                        <div class="gallery-preview-peek">
-                            <img class="gallery-image preview-peek" src="${previewPeek}" alt="Gallery image peek" loading="lazy">
-                            ${post.gallery_urls.length > 2 ? `<div class="gallery-more-count">+${post.gallery_urls.length - 1}</div>` : ''}
-                        </div>
-                        ` : ''}
+                <div class="post-media gallery" data-gallery-count="${post.gallery_urls.length}">
+                    ${galleryItems}
+                    ${moreCount > 0 ? `
+                    <div class="gallery-fade">
+                        <span class="gallery-badge">▼ ${moreCount} more image${moreCount > 1 ? 's' : ''}</span>
                     </div>
-                    <div class="gallery-scroll gallery-full" hidden>${galleryItems}</div>
-                    <!-- navigation buttons removed; preview below main image shows second image -->
+                    <div class="gallery-collapse">
+                        <span class="gallery-badge">▲ Show less</span>
+                    </div>
+                    ` : ''}
                 </div>`;
         } else if (post.image_url) {
             mediaHTML = `
@@ -337,9 +332,15 @@
     container.addEventListener('click', (e) => {
         const post = e.target.closest('.post');
         if (!post) return;
+
+        // Skip if a media resize just finished (mouseup landed on background)
+        if (window.__didMediaResize) {
+            window.__didMediaResize = false;
+            return;
+        }
         
         // Ignore clicks on interactive elements and comments
-        if (e.target.closest('a, button, video, audio, input, select, .video-controls, .gallery-nav, .search-form, .comment')) {
+        if (e.target.closest('a, button, video, audio, input, select, .video-controls, .gallery-fade, .gallery-collapse, .search-form, .comment')) {
             return;
         }
         
