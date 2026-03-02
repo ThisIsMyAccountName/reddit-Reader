@@ -74,7 +74,7 @@
                 const active = (sub === subreddit) ? ' active' : '';
                 html += `<a href="/r/${encodeURIComponent(sub)}" class="subreddit-link${active}">r/${escapeHTML(sub)}</a>`;
             });
-            if (!pinned_subs.includes(subreddit)) {
+            if (!pinnedSubs.includes(subreddit)) {
                 html += `<span class="subreddit-link active">r/${escapeHTML(subreddit)}</span>`;
             }
             nav.innerHTML = html;
@@ -425,7 +425,7 @@
             // fallback: full reload so the server state is reflected
             window.location.reload();
         } finally {
-            if (submitBtn) { submitBtn.disabled = false; if (originalText) submitBtn.textContent = originalText; }
+            if (submitBtn) { submitBtn.disabled = false; }
         }
     });
 
@@ -715,8 +715,19 @@
             isDraggingViewport = false;
         });
         
-        window.addEventListener('scroll', updateViewportIndicator, { passive: true });
-        window.addEventListener('resize', updateViewportIndicator, { passive: true });
+        // Throttle with rAF so we run at most once per frame
+        let vpTicking = false;
+        function scheduleViewportUpdate() {
+            if (!vpTicking) {
+                vpTicking = true;
+                requestAnimationFrame(() => {
+                    updateViewportIndicator();
+                    vpTicking = false;
+                });
+            }
+        }
+        window.addEventListener('scroll', scheduleViewportUpdate, { passive: true });
+        window.addEventListener('resize', scheduleViewportUpdate, { passive: true });
 
         const postsContainer = document.getElementById('posts-container');
         if (window.ResizeObserver && postsContainer) {
