@@ -28,14 +28,6 @@ class ThreadSafeTTLCache:
         with self._lock:
             self._cache[key] = value
 
-    def pop(self, key: Any, default: Optional[Any] = None) -> Optional[Any]:
-        with self._lock:
-            return self._cache.pop(key, default)
-
     def clear(self) -> None:
         with self._lock:
             self._cache.clear()
-
-    def stats(self) -> dict:
-        with self._lock:
-            return {"currsize": self._cache.currsize, "maxsize": self._cache.maxsize}

@@ -29,5 +29,5 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000', timeout=5)" || exit 1
 
-# Run Flask app
-CMD ["python", "app.py"]
+# Run with gunicorn in production (app.run() is the dev-only fallback)
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]

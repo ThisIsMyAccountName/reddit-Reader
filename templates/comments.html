@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/media.html" import render_media %}
 
 {% block title %}{{ post.title }} - Reddit Reader{% endblock %}
 
@@ -27,51 +28,11 @@
             💬 {{ "{:,}".format(post.num_comments) }} comments
         </span>
         <span class="post-meta-item">
-            🕐 {{ reader.format_timestamp(post.created_utc) }}
+            🕐 {{ post.created_utc | format_timestamp }}
         </span>
     </div>
     
-    {% if post.is_video and (post.hls_url or post.video_url) %}
-    <div class="post-media video-container" style="margin-top: 15px;" data-hls-url="{{ post.hls_url }}" data-audio-url="{{ post.audio_url }}">
-        <video class="post-video" src="{{ post.video_url }}" loop playsinline autoplay muted></video>
-        {% if post.audio_url %}
-        <audio class="video-audio" src="{{ post.audio_url }}" style="display:none;" loop muted></audio>
-        {% endif %}
-        <div class="video-controls">
-            <div class="video-timeline">
-                <div class="video-progress"></div>
-            </div>
-            <div class="video-volume-container">
-                <button class="video-btn video-mute" aria-label="Mute">🔇</button>
-                <input type="range" class="video-volume-slider" min="0" max="100" value="0">
-            </div>
-            <div class="video-speed-container">
-                <button class="video-btn video-speed-decrease" aria-label="Decrease speed">−</button>
-                <div class="video-speed-display">1x</div>
-                <button class="video-btn video-speed-increase" aria-label="Increase speed">+</button>
-            </div>
-            <button class="video-btn video-fullscreen" aria-label="Fullscreen">⛶</button>
-        </div>
-    </div>
-    {% elif post.gallery_urls and post.gallery_urls|length > 0 %}
-    <div class="post-media gallery" style="margin-top: 15px;">
-        <div class="gallery-scroll">
-            {% for url in post.gallery_urls %}
-            <div class="gallery-item">
-                <img class="gallery-image" src="{{ url }}" alt="Gallery image" loading="lazy">
-            </div>
-            {% endfor %}
-        </div>
-        {% if post.gallery_urls|length > 1 %}
-        <button class="gallery-nav gallery-nav-left" aria-label="Previous image">‹</button>
-        <button class="gallery-nav gallery-nav-right" aria-label="Next image">›</button>
-        {% endif %}
-    </div>
-    {% elif post.image_url %}
-    <div class="post-media" style="margin-top: 15px;">
-        <img class="post-image" src="{{ post.image_url }}" alt="Post image">
-    </div>
-    {% endif %}
+    {{ render_media(post) }}
 
     {% if post.selftext %}
     <div class="post-selftext" style="border-top: 1px solid var(--border); margin-top: 15px; padding-top: 15px;">

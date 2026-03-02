@@ -3,10 +3,15 @@ Reddit API client — fetches and parses posts, comments, and media.
 """
 
 import html
+import logging
 import time
 import requests
-from datetime import datetime
-from typing import Dict, List, Optional
+from datetime import datetime, timezone
+
+import config
+from services.post_builder import build_post_view_model
+
+logger = logging.getLogger(__name__)
 
 
 class RedditReader:
@@ -21,21 +26,21 @@ class RedditReader:
     # HTTP helpers
     # ------------------------------------------------------------------
 
-    def _get_json(self, url: str, params: Optional[Dict] = None) -> Optional[Dict]:
+    def _get_json(self, url: str, params: dict | None = None) -> dict | None:
         """GET *url* and return parsed JSON, with basic 429 back-off."""
         try:
             response = self.session.get(
-                url, headers=self.headers, params=params, timeout=10
+                url, headers=self.headers, params=params, timeout=config.REQUEST_TIMEOUT
             )
             if response.status_code == 429:
-                time.sleep(2.0)
+                time.sleep(config.RATE_LIMIT_RETRY_DELAY)
                 response = self.session.get(
-                    url, headers=self.headers, params=params, timeout=10
+                    url, headers=self.headers, params=params, timeout=config.REQUEST_TIMEOUT
                 )
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching data: {e}")
+            logger.warning("Error fetching data from %s: %s", url, e)
             return None
 
     # ------------------------------------------------------------------
@@ -47,12 +52,12 @@ class RedditReader:
         subreddit: str = "all",
         sort: str = "hot",
         limit: int = 25,
-        after: Optional[str] = None,
-        t: Optional[str] = None,
-    ) -> Optional[Dict]:
+        after: str | None = None,
+        t: str | None = None,
+    ) -> dict | None:
         """Fetch posts from *r/<subreddit>/<sort>.json*."""
         url = f"https://reddit.com/r/{subreddit}/{sort}.json"
-        params: Dict = {"limit": min(limit, 100)}
+        params: dict = {"limit": min(limit, config.MAX_POSTS_PER_REQUEST)}
         if after:
             params["after"] = after
         if t and sort == "top":
@@ -61,13 +66,13 @@ class RedditReader:
 
     def fetch_post_comments(
         self, subreddit: str, post_id: str, limit: int = 200
-    ) -> Optional[Dict]:
+    ) -> dict | None:
         """Fetch comments for a specific post."""
         url = f"https://reddit.com/r/{subreddit}/comments/{post_id}.json"
         params = {"limit": limit, "depth": 10, "showmore": False}
         return self._get_json(url, params=params)
 
-    def fetch_subreddit_autocomplete(self, query: str, limit: int = 10) -> List[Dict]:
+    def fetch_subreddit_autocomplete(self, query: str, limit: int = 10) -> list[dict]:
         """Call Reddit's subreddit autocomplete endpoint and return a
         normalized list of small dicts: {name, title, subscribers}.
         Uses the public reddit.com API with the configured User-Agent.
@@ -88,10 +93,10 @@ class RedditReader:
         data = None
         for url in candidate_urls:
             try:
-                resp = self.session.get(url, headers=self.headers, params=params, timeout=10)
+                resp = self.session.get(url, headers=self.headers, params=params, timeout=config.REQUEST_TIMEOUT)
                 if resp.status_code == 429:
-                    time.sleep(2.0)
-                    resp = self.session.get(url, headers=self.headers, params=params, timeout=10)
+                    time.sleep(config.RATE_LIMIT_RETRY_DELAY)
+                    resp = self.session.get(url, headers=self.headers, params=params, timeout=config.REQUEST_TIMEOUT)
 
                 # If 404, try next candidate silently
                 if resp.status_code == 404:
@@ -101,15 +106,13 @@ class RedditReader:
                 data = resp.json()
                 break
             except requests.exceptions.HTTPError as he:
-                # For non-404 HTTP errors, print once and stop
-                print(f"Error fetching autocomplete ({url}): {he}")
+                logger.warning("Error fetching autocomplete (%s): %s", url, he)
                 break
             except requests.exceptions.RequestException as e:
-                # Network/timeout/etc — print and stop
-                print(f"Error fetching autocomplete ({url}): {e}")
+                logger.warning("Error fetching autocomplete (%s): %s", url, e)
                 break
 
-        results: List[Dict] = []
+        results: list[dict] = []
         if not data:
             return results
 
@@ -135,13 +138,13 @@ class RedditReader:
     # Media extraction
     # ------------------------------------------------------------------
 
-    def extract_media(self, post_data: Dict) -> Dict:
+    def extract_media(self, post_data: dict) -> dict:
         """Extract media URLs (images, video, gallery) from a post."""
         image_url = ""
         video_url = ""
         audio_url = ""
         hls_url = ""
-        gallery_urls: List[str] = []
+        gallery_urls: list[str] = []
         is_video = bool(post_data.get("is_video", False))
 
         # Reddit-hosted video
@@ -215,7 +218,7 @@ class RedditReader:
             "gallery_urls": gallery_urls,
         }
 
-    def _get_thumbnail(self, post_data: Dict) -> str:
+    def _get_thumbnail(self, post_data: dict) -> str:
         """Return the best available thumbnail URL for a post."""
         thumbnail = post_data.get("thumbnail", "")
         if thumbnail and thumbnail.startswith("http"):
@@ -240,7 +243,7 @@ class RedditReader:
     # Parsing helpers
     # ------------------------------------------------------------------
 
-    def parse_posts(self, data: Optional[Dict]) -> List[Dict]:
+    def parse_posts(self, data: dict | None) -> list[dict]:
         """Parse Reddit listing JSON into a flat list of post dicts."""
         if not data or "data" not in data:
             return []
@@ -249,29 +252,9 @@ class RedditReader:
         for child in data["data"]["children"]:
             post_data = child["data"]
             media = self.extract_media(post_data)
+            thumbnail = self._get_thumbnail(post_data)
 
-            posts.append(
-                {
-                    "title": post_data.get("title", ""),
-                    "author": post_data.get("author", "[deleted]"),
-                    "subreddit": post_data.get("subreddit", ""),
-                    "score": post_data.get("score", 0),
-                    "num_comments": post_data.get("num_comments", 0),
-                    "url": post_data.get("url", ""),
-                    "permalink": f"https://reddit.com{post_data.get('permalink', '')}",
-                    "created_utc": post_data.get("created_utc", 0),
-                    "selftext": post_data.get("selftext", ""),
-                    "is_self": post_data.get("is_self", False),
-                    "id": post_data.get("id", ""),
-                    "thumbnail": self._get_thumbnail(post_data),
-                    "image_url": media["image_url"],
-                    "is_video": media["is_video"],
-                    "video_url": media["video_url"],
-                    "audio_url": media["audio_url"],
-                    "hls_url": media["hls_url"],
-                    "gallery_urls": media["gallery_urls"],
-                }
-            )
+            posts.append(build_post_view_model(post_data, media, thumbnail=thumbnail))
         return posts
 
     @staticmethod
@@ -297,8 +280,8 @@ class RedditReader:
         return any(phrase in body_lower for phrase in bot_phrases)
 
     def parse_comment_tree(
-        self, comment_obj: Dict, depth: int = 0
-    ) -> Optional[Dict]:
+        self, comment_obj: dict, depth: int = 0
+    ) -> dict | None:
         """Recursively parse a comment and its replies."""
         if comment_obj.get("kind") != "t1":
             return None
@@ -314,7 +297,7 @@ class RedditReader:
         if self._is_bot_comment(author, body):
             return None
 
-        comment: Dict = {
+        comment: dict = {
             "author": author,
             "body": body,
             "score": score,
@@ -333,36 +316,36 @@ class RedditReader:
 
         return comment
 
-    def parse_comments(self, data: Optional[List]) -> List[Dict]:
+    def parse_comments(self, data: list | None) -> list[dict]:
         """Parse top-level Reddit comments with nested replies."""
         if not data or len(data) < 2:
             return []
 
-        comments: List[Dict] = []
+        comments: list[dict] = []
         for child in data[1]["data"]["children"]:
             parsed = self.parse_comment_tree(child, 0)
             if parsed:
                 comments.append(parsed)
         return comments
 
-    def fetch_user(self, username: str, content: str = "submitted", sort: str = "new", limit: int = 25, after: Optional[str] = None, t: Optional[str] = None) -> Optional[Dict]:
+    def fetch_user(self, username: str, content: str = "submitted", sort: str = "new", limit: int = 25, after: str | None = None, t: str | None = None) -> dict | None:
         """Fetch user submitted posts or comments: /user/<username>/<content>.json"""
         if content not in ("submitted", "comments"):
             content = "submitted"
         url = f"https://reddit.com/user/{username}/{content}.json"
-        params: Dict = {"limit": min(limit, 100)}
+        params: dict = {"limit": min(limit, config.MAX_POSTS_PER_REQUEST)}
         if after:
             params["after"] = after
         if t and sort == "top":
             params["t"] = t
         return self._get_json(url, params=params)
 
-    def parse_user_comments(self, data: Optional[Dict]) -> List[Dict]:
+    def parse_user_comments(self, data: dict | None) -> list[dict]:
         """Parse the listing returned by /user/<name>/comments.json into a list of comment dicts."""
         if not data or "data" not in data:
             return []
 
-        comments: List[Dict] = []
+        comments: list[dict] = []
         for child in data["data"].get("children", []):
             d = child.get("data", {})
             # Basic fields
@@ -404,5 +387,5 @@ class RedditReader:
     @staticmethod
     def format_timestamp(timestamp: float) -> str:
         """Convert a Unix timestamp to a human-readable string."""
-        dt = datetime.fromtimestamp(timestamp)
+        dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.strftime("%Y-%m-%d %H:%M:%S")

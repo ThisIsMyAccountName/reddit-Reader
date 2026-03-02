@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 
-def build_post_view_model(post_data: dict[str, Any], media: dict[str, Any]) -> dict[str, Any]:
+def build_post_view_model(post_data: dict[str, Any], media: dict[str, Any], thumbnail: str = "") -> dict[str, Any]:
     """Normalize a Reddit post payload into template/API friendly fields."""
     return {
         "title": post_data.get("title", ""),
@@ -19,6 +19,7 @@ def build_post_view_model(post_data: dict[str, Any], media: dict[str, Any]) -> d
         "selftext": post_data.get("selftext", ""),
         "is_self": post_data.get("is_self", False),
         "id": post_data.get("id", ""),
+        "thumbnail": thumbnail,
         "image_url": media["image_url"],
         "is_video": media["is_video"],
         "video_url": media["video_url"],

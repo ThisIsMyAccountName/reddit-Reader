@@ -28,10 +28,6 @@ DATABASE_PATH = os.getenv("DATABASE_PATH", "users.db")
 REMEMBER_COOKIE_DURATION = int(os.getenv("REMEMBER_COOKIE_DURATION", "2592000"))  # 30 days in seconds
 
 # Display settings
-SHOW_POST_DETAILS = os.getenv("SHOW_POST_DETAILS", "True").lower() == "true"
-MAX_SELFTEXT_LENGTH = int(os.getenv("MAX_SELFTEXT_LENGTH", "150"))
-MAX_COMMENT_LENGTH = int(os.getenv("MAX_COMMENT_LENGTH", "200"))
-MAX_COMMENTS_DISPLAY = int(os.getenv("MAX_COMMENTS_DISPLAY", "10"))
 
 # API settings
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "10"))  # seconds
@@ -40,9 +36,3 @@ MAX_POSTS_PER_REQUEST = int(os.getenv("MAX_POSTS_PER_REQUEST", "100"))  # Reddit
 # Autocomplete cache settings
 AUTOCOMPLETE_CACHE_TTL = int(os.getenv("AUTOCOMPLETE_CACHE_TTL", "60"))  # seconds
 AUTOCOMPLETE_CACHE_MAXSIZE = int(os.getenv("AUTOCOMPLETE_CACHE_MAXSIZE", "1024"))
-
-# Future: AI Summary settings (for when you add AI features)
-# AI_PROVIDER = "openai"  # or "anthropic"
-# AI_MODEL = "gpt-4"
-# AI_API_KEY = "your-api-key-here"
-# SUMMARY_MAX_LENGTH = 200

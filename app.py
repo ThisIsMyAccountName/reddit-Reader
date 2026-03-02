@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import timedelta
 
@@ -25,12 +26,19 @@ def create_app() -> Flask:
 
     app = Flask(__name__)
     app.secret_key = config.SECRET_KEY
+
+    if config.SECRET_KEY == "change-this-to-a-random-secret-key-in-production":
+        logging.getLogger(__name__).warning(
+            "SECRET_KEY is set to the insecure default! "
+            "Set the SECRET_KEY environment variable before deploying to production."
+        )
+
     app.config["REMEMBER_COOKIE_DURATION"] = timedelta(
         seconds=config.REMEMBER_COOKIE_DURATION
     )
     app.config['WTF_CSRF_TIME_LIMIT'] = None  # Optional: disables CSRF token expiration
 
-    csrf = CSRFProtect(app)
+    CSRFProtect(app)
 
     login_manager = LoginManager()
     login_manager.init_app(app)

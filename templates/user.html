@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/media.html" import render_media %}
 
 {% block title %}u/{{ username }} - Reddit Reader{% endblock %}
 
@@ -71,50 +72,7 @@
                             <a href="{{ url_for('comments', subreddit=item.subreddit, post_id=item.id) }}">{{ item.title }}</a>
                         </h2>
 
-                        {% if item.is_video and (item.hls_url or item.video_url) %}
-                        <div class="post-media video-container" data-hls-url="{{ item.hls_url }}" data-audio-url="{{ item.audio_url }}">
-                            <video class="post-video" src="{{ item.video_url }}" loop playsinline autoplay muted></video>
-                            {% if item.audio_url %}<audio class="video-audio" src="{{ item.audio_url }}" style="display:none;" loop muted></audio>{% endif %}
-                            <div class="video-controls">
-                                
-                                <div class="video-timeline"><div class="video-progress"></div></div>
-                                <div class="video-volume-container">
-                                    <button class="video-btn video-mute" aria-label="Mute">🔇</button>
-                                    <input type="range" class="video-volume-slider" min="0" max="100" value="0">
-                                </div>
-                                <div class="video-speed-container">
-                                    <button class="video-btn video-speed-decrease" aria-label="Decrease speed">−</button>
-                                    <div class="video-speed-display">1x</div>
-                                    <button class="video-btn video-speed-increase" aria-label="Increase speed">+</button>
-                                </div>
-                                <button class="video-btn video-fullscreen" aria-label="Fullscreen">⛶</button>
-                            </div>
-                        </div>
-                        {% elif item.gallery_urls and item.gallery_urls|length > 0 %}
-                        <div class="post-media gallery">
-                            <div class="gallery-preview" tabindex="0" role="button" aria-expanded="false">
-                                <div class="gallery-preview-main">
-                                    <img class="gallery-image preview-main" src="{{ item.gallery_urls[0] }}" alt="Gallery image" loading="lazy">
-                                </div>
-                                {% if item.gallery_urls|length > 1 %}
-                                <div class="gallery-preview-peek">
-                                    <img class="gallery-image preview-peek" src="{{ item.gallery_urls[1] }}" alt="Gallery image peek" loading="lazy">
-                                    {% if item.gallery_urls|length > 2 %}
-                                    <div class="gallery-more-count">+{{ item.gallery_urls|length - 1 }}</div>
-                                    {% endif %}
-                                </div>
-                                {% endif %}
-                            </div>
-
-                            <div class="gallery-scroll gallery-full" hidden>
-                                {% for url in item.gallery_urls %}
-                                <div class="gallery-item"><img class="gallery-image" src="{{ url }}" alt="Gallery image" loading="lazy"></div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        {% elif item.image_url %}
-                        <div class="post-media"><img class="post-image" src="{{ item.image_url }}" alt="Post image"></div>
-                        {% endif %}
+                        {{ render_media(item) }}
 
                         {% if item.selftext %}
                         <div class="post-text-content">{{ item.selftext | format_content | safe }}</div>

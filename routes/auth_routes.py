@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from flask import flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash
@@ -27,6 +29,10 @@ def register_auth_routes(app) -> None:
                 user = User(user_data["id"], user_data["username"])
                 login_user(user, remember=bool(remember))
                 next_page = request.args.get("next")
+                if next_page:
+                    parsed = urlparse(next_page)
+                    if parsed.netloc or parsed.scheme:
+                        next_page = None
                 return redirect(next_page or url_for("index"))
 
             flash("Invalid username or password.", "error")
@@ -54,7 +60,7 @@ def register_auth_routes(app) -> None:
 
         return render_template("register.html", form=form)
 
-    @app.route("/logout")
+    @app.route("/logout", methods=["POST"])
     @login_required
     def logout():
         logout_user()

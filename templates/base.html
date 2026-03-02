@@ -33,7 +33,10 @@
                 {% if current_user.is_authenticated %}
                     <span class="header-user">👤 {{ current_user.username }}</span>
                     <a href="{{ url_for('settings') }}" class="btn btn-small btn-icon" title="Settings">⚙️ Settings</a>
-                    <a href="{{ url_for('logout') }}" class="btn btn-small">Logout</a>
+                    <form method="post" action="{{ url_for('logout') }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-small">Logout</button>
+                    </form>
                 {% else %}
                     <a href="{{ url_for('login') }}" class="btn btn-small">Login</a>
                     <a href="{{ url_for('register') }}" class="btn btn-small btn-primary">Register</a>

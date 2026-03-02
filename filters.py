@@ -4,6 +4,7 @@ Jinja2 template filters.
 
 import html
 import re
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 
@@ -215,6 +216,13 @@ def _linkify_mentions(text: str) -> str:
     return "".join(out)
 
 
+def format_timestamp(timestamp: float) -> str:
+    """Convert a Unix timestamp to a human-readable UTC string."""
+    dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
 def register_filters(app):
     """Register all custom Jinja filters on *app*."""
     app.template_filter("format_content")(format_content)
+    app.template_filter("format_timestamp")(format_timestamp)
