@@ -555,7 +555,7 @@
         let dragStartY = 0;
         let dragStartScroll = 0;
         
-        // Update viewport indicator position and size
+        // Update viewport indicator position and size based on actual visible posts
         function updateViewportIndicator() {
             const maxPageScroll = document.documentElement.scrollHeight - window.innerHeight;
             const currentPageScroll = window.pageYOffset || document.documentElement.scrollTop;
@@ -565,29 +565,39 @@
             const maxNavScroll = miniNavItems.scrollHeight - miniNavItems.clientHeight;
             miniNavItems.scrollTop = scrollRatio * maxNavScroll;
             
-            // Calculate viewport indicator size and position
-            const viewportHeight = window.innerHeight;
-            const totalHeight = document.documentElement.scrollHeight;
-            const miniNavRect = miniNav.getBoundingClientRect();
-            const itemsRect = miniNavItems.getBoundingClientRect();
-            const itemsTopOffset = Math.max(0, itemsRect.top - miniNavRect.top);
-            const itemsHeight = Math.max(0, itemsRect.height);
-            
-            const viewportRatio = viewportHeight / totalHeight;
-            const indicatorHeight = Math.max(30, itemsHeight * viewportRatio);
-            const indicatorTop = itemsTopOffset + scrollRatio * (itemsHeight - indicatorHeight);
-            
-            miniNavViewport.style.height = indicatorHeight + 'px';
-            miniNavViewport.style.top = indicatorTop + 'px';
-            
-            // Update active post highlighting
+            // Find which posts are actually visible in the browser viewport
             const posts = document.querySelectorAll('.post');
-            const viewportCenter = window.innerHeight / 2;
+            const vpTop = 0;
+            const vpBottom = window.innerHeight;
+            let firstVisibleIndex = null;
+            let lastVisibleIndex = null;
+            let firstVisibleRatio = 1;   // fraction of first visible post that's on screen
+            let lastVisibleRatio = 1;    // fraction of last visible post that's on screen
             let closestPost = null;
             let closestDistance = Infinity;
-            
+            const viewportCenter = vpBottom / 2;
+
             posts.forEach(post => {
                 const rect = post.getBoundingClientRect();
+                // A post is visible if it overlaps the viewport at all
+                if (rect.bottom > vpTop && rect.top < vpBottom) {
+                    const idx = post.dataset.postIndex;
+                    if (idx) {
+                        // How much of this post is visible (0..1)
+                        const visibleTop = Math.max(vpTop, rect.top);
+                        const visibleBottom = Math.min(vpBottom, rect.bottom);
+                        const postHeight = rect.height || 1;
+                        const ratio = Math.max(0, (visibleBottom - visibleTop) / postHeight);
+
+                        if (firstVisibleIndex === null) {
+                            firstVisibleIndex = idx;
+                            firstVisibleRatio = ratio;
+                        }
+                        lastVisibleIndex = idx;
+                        lastVisibleRatio = ratio;
+                    }
+                }
+                // Track closest-to-center for active highlighting
                 const postCenter = rect.top + rect.height / 2;
                 const distance = Math.abs(postCenter - viewportCenter);
                 if (distance < closestDistance) {
@@ -595,7 +605,50 @@
                     closestPost = post;
                 }
             });
-            
+
+            // Position the ghost box to span the nav items of visible posts
+            const miniNavRect = miniNav.getBoundingClientRect();
+            const itemsRect = miniNavItems.getBoundingClientRect();
+            const itemsTopOffset = Math.max(0, itemsRect.top - miniNavRect.top);
+            const itemsVisibleHeight = itemsRect.height;
+
+            if (firstVisibleIndex !== null && lastVisibleIndex !== null) {
+                const firstNav = miniNavItems.querySelector(`[data-post-index="${firstVisibleIndex}"]`);
+                const lastNav = miniNavItems.querySelector(`[data-post-index="${lastVisibleIndex}"]`);
+                if (firstNav && lastNav) {
+                    // Get nav item positions relative to miniNav
+                    const firstRect = firstNav.getBoundingClientRect();
+                    const lastRect = lastNav.getBoundingClientRect();
+                    const firstNavHeight = firstRect.height;
+                    const lastNavHeight = lastRect.height;
+
+                    // Offset into the first nav item by the hidden portion
+                    // e.g. if 30% of the first post is visible, skip 70% of its nav item
+                    const firstHiddenFraction = 1 - firstVisibleRatio;
+                    const ghostTop = (firstRect.top - miniNavRect.top) + (firstNavHeight * firstHiddenFraction);
+
+                    // Trim the last nav item by its hidden portion
+                    const lastHiddenFraction = 1 - lastVisibleRatio;
+                    const ghostBottom = (lastRect.bottom - miniNavRect.top) - (lastNavHeight * lastHiddenFraction);
+
+                    const ghostHeight = Math.max(16, ghostBottom - ghostTop);
+                    // Clamp within the visible items area
+                    const clampedTop = Math.max(itemsTopOffset, Math.min(ghostTop, itemsTopOffset + itemsVisibleHeight - ghostHeight));
+                    const clampedHeight = Math.min(ghostHeight, itemsTopOffset + itemsVisibleHeight - clampedTop);
+
+                    miniNavViewport.style.top = clampedTop + 'px';
+                    miniNavViewport.style.height = Math.max(20, clampedHeight) + 'px';
+                }
+            } else {
+                // Fallback: proportional positioning (e.g. before first post or after last)
+                const viewportRatio = window.innerHeight / (document.documentElement.scrollHeight || 1);
+                const indicatorHeight = Math.max(30, itemsVisibleHeight * viewportRatio);
+                const indicatorTop = itemsTopOffset + scrollRatio * (itemsVisibleHeight - indicatorHeight);
+                miniNavViewport.style.height = indicatorHeight + 'px';
+                miniNavViewport.style.top = Math.max(itemsTopOffset, indicatorTop) + 'px';
+            }
+
+            // Update active post highlighting
             if (closestPost) {
                 const index = closestPost.dataset.postIndex;
                 const navItem = miniNav.querySelector(`[data-post-index="${index}"]`);
@@ -615,7 +668,28 @@
                 dragStartScroll = window.pageYOffset || document.documentElement.scrollTop;
                 e.preventDefault();
             } else if (e.target === miniNav || e.target === miniNavItems || miniNavItems.contains(e.target)) {
-                // Click to jump
+                // Items have pointer-events:none so e.target is never a nav item.
+                // Determine which nav item is at the click Y by checking bounding rects.
+                const clickY = e.clientY;
+                let hitItem = null;
+                const items = miniNavItems.querySelectorAll('.mini-nav-item');
+                for (const item of items) {
+                    const r = item.getBoundingClientRect();
+                    if (clickY >= r.top && clickY <= r.bottom) {
+                        hitItem = item;
+                        break;
+                    }
+                }
+                if (hitItem) {
+                    const postIndex = hitItem.dataset.postIndex;
+                    const targetPost = document.getElementById('post-' + postIndex);
+                    if (targetPost) {
+                        targetPost.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        e.preventDefault();
+                        return;
+                    }
+                }
+                // Click on empty space — jump to proportional position
                 const rect = miniNavItems.getBoundingClientRect();
                 const clickRatio = (e.clientY - rect.top) / rect.height;
                 const maxPageScroll = document.documentElement.scrollHeight - window.innerHeight;
