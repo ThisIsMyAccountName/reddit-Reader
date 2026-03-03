@@ -477,14 +477,72 @@ body {
     padding: 6px 0; /* reduced vertical spacing */
     margin: 0; /* remove card margins so dividers align flush */
     border-bottom: 1px solid var(--border); /* divider between posts */
-    transition: border-color 0.2s, background 0.15s;
+    transition: border-color 0.2s, background 0.15s, opacity 0.4s;
     content-visibility: auto;
     contain-intrinsic-size: auto 600px;
+    position: relative;
 }
 
 .post:hover {
     border-color: var(--accent);
     background: transparent;
+}
+
+/* Read post dimming — posts user has interacted with and scrolled past */
+.post-read {
+    opacity: 0.5;
+}
+.post-read:hover {
+    opacity: 0.85;
+}
+
+/* Keyboard navigation — subtle left-edge indicator */
+.post-focused {
+    border-left: 3px solid var(--accent);
+    padding-left: calc(6px - 3px); /* compensate so content doesn't shift (original padding 6px 0) */
+    z-index: 1;
+}
+.post-focused.post-read {
+    opacity: 0.85;
+}
+
+/* Double-tap favorite — heart burst animation */
+.heart-burst {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    font-size: 80px;
+    pointer-events: none;
+    z-index: 100;
+    animation: heartPop 0.6s ease forwards;
+    filter: drop-shadow(0 0 12px rgba(231, 76, 60, 0.6));
+}
+@keyframes heartPop {
+    0%   { transform: translate(-50%, -50%) scale(0);   opacity: 1; }
+    40%  { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1);   opacity: 0; }
+}
+
+/* Favorite heart icon — always visible, filled when active */
+.favorite-icon {
+    font-size: 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.15s ease, color 0.15s ease;
+    opacity: 0.4;
+    color: var(--text-secondary);
+}
+.favorite-icon:hover {
+    transform: scale(1.25);
+    opacity: 0.7;
+}
+.favorite-icon.favorited {
+    opacity: 1;
+    color: #e74c3c;
+}
+.favorite-icon.favorited:hover {
+    opacity: 1;
 }
 
 .post-title {

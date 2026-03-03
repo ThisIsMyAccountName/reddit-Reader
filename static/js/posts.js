@@ -370,6 +370,8 @@
                 } else {
                     commentsContainer.hidden = false;
                 }
+                // Mark post as read when user expands comments
+                if (window.markPostRead) window.markPostRead(post);
             } else {
                 commentsContainer.hidden = true;
             }

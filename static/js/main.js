@@ -443,6 +443,256 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// ── Feature toggle helper ──
+// Features default to enabled; users can disable them in Settings.
+function isFeatureEnabled(key) {
+    const v = localStorage.getItem('feature_' + key);
+    return v === null ? true : v === 'true';
+}
+
+// ── Feature: "Read" Post Dimming ──
+// Posts the user interacted with get dimmed only after they scroll out of view.
+// Read IDs stored in sessionStorage so they reset each session.
+// "Interacted" IDs are tracked separately; the .post-read class is applied
+// by an IntersectionObserver once the post leaves the viewport.
+function getReadPosts() {
+    try { return new Set(JSON.parse(sessionStorage.getItem('readPosts') || '[]')); }
+    catch { return new Set(); }
+}
+function saveReadPosts(set) {
+    try { sessionStorage.setItem('readPosts', JSON.stringify([...set])); } catch {}
+}
+
+// Interacted posts that haven't scrolled out yet (pending dimming)
+const _interactedPostIds = getReadPosts(); // seed from storage
+
+// IntersectionObserver: when an interacted post leaves the viewport, dim it
+const _readObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        const post = entry.target;
+        const id = post.dataset.postId;
+        if (!id) return;
+        if (!entry.isIntersecting && _interactedPostIds.has(id)) {
+            post.classList.add('post-read');
+        }
+    });
+}, { threshold: 0 });
+
+function markPostRead(postEl) {
+    if (!isFeatureEnabled('readDimming')) return;
+    const id = postEl?.dataset?.postId;
+    if (!id) return;
+    _interactedPostIds.add(id);
+    const readSet = getReadPosts();
+    readSet.add(id);
+    saveReadPosts(readSet);
+    // Start observing so dimming happens once it scrolls out
+    _readObserver.observe(postEl);
+}
+function restoreReadState(root) {
+    if (!isFeatureEnabled('readDimming')) return;
+    const readSet = getReadPosts();
+    if (!readSet.size) return;
+    (root || document).querySelectorAll('.post').forEach(post => {
+        if (readSet.has(post.dataset.postId)) {
+            // Interacted in a previous load — dim immediately + observe
+            post.classList.add('post-read');
+            _readObserver.observe(post);
+        }
+    });
+}
+// Expose globally so posts.js can call it
+window.markPostRead = markPostRead;
+window.restoreReadState = restoreReadState;
+
+// ── Feature: Favorites ──
+// Click the heart icon (desktop) or double-tap (mobile) to toggle favorite.
+// Stored in localStorage (persists across sessions).
+function getFavorites() {
+    try { return new Set(JSON.parse(localStorage.getItem('favorites') || '[]')); }
+    catch { return new Set(); }
+}
+function saveFavorites(set) {
+    try { localStorage.setItem('favorites', JSON.stringify([...set])); } catch {}
+}
+function showHeartAnimation(postEl) {
+    const heart = document.createElement('div');
+    heart.className = 'heart-burst';
+    heart.textContent = '❤️';
+    postEl.appendChild(heart);
+    heart.addEventListener('animationend', () => heart.remove());
+}
+function toggleFavorite(post) {
+    if (!isFeatureEnabled('favorites')) return;
+    const postId = post.dataset.postId;
+    if (!postId) return;
+    const icon = post.querySelector('.favorite-icon');
+    const favs = getFavorites();
+    if (favs.has(postId)) {
+        // Unfavorite
+        favs.delete(postId);
+        saveFavorites(favs);
+        if (icon) { icon.classList.remove('favorited'); icon.textContent = '♡'; icon.title = 'Favorite'; }
+        showHeartAnimation(post);
+    } else {
+        // Favorite
+        favs.add(postId);
+        saveFavorites(favs);
+        if (icon) { icon.classList.add('favorited'); icon.textContent = '❤️'; icon.title = 'Unfavorite'; }
+        showHeartAnimation(post);
+        markPostRead(post);
+    }
+}
+// Ensure every post has a heart icon (outline by default)
+function ensureHeartIcons(root) {
+    if (!isFeatureEnabled('favorites')) return;
+    (root || document).querySelectorAll('.post').forEach(post => {
+        if (post.querySelector('.favorite-icon')) return;
+        const metaLeft = post.querySelector('.post-meta-left');
+        if (!metaLeft) return;
+        const icon = document.createElement('span');
+        icon.className = 'favorite-icon';
+        icon.title = 'Favorite';
+        icon.textContent = '♡';
+        metaLeft.insertBefore(icon, metaLeft.firstChild);
+    });
+}
+function restoreFavorites(root) {
+    if (!isFeatureEnabled('favorites')) return;
+    ensureHeartIcons(root);
+    const favs = getFavorites();
+    if (!favs.size) return;
+    (root || document).querySelectorAll('.post').forEach(post => {
+        if (favs.has(post.dataset.postId)) {
+            const icon = post.querySelector('.favorite-icon');
+            if (icon) { icon.classList.add('favorited'); icon.textContent = '❤️'; icon.title = 'Unfavorite'; }
+        }
+    });
+}
+window.restoreFavorites = restoreFavorites;
+
+// Desktop: click on the heart icon to toggle favorite
+document.addEventListener('click', (e) => {
+    const icon = e.target.closest('.favorite-icon');
+    if (!icon) return;
+    e.stopPropagation();
+    const post = icon.closest('.post');
+    if (post) toggleFavorite(post);
+}, true);
+
+// Mobile: double-tap anywhere on the post to toggle favorite
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+if (isTouchDevice) {
+    document.addEventListener('dblclick', (e) => {
+        const post = e.target.closest('.post');
+        if (!post) return;
+        if (e.target.closest('a, button, input, select, video, audio, .video-controls, .comment')) return;
+        toggleFavorite(post);
+    });
+}
+
+// ── Feature: Keyboard Navigation ──
+// J/K = next/prev post, Space = toggle comments, P = toggle pin, Esc = close
+let kbFocusIndex = -1;
+
+function getAllPosts() {
+    return document.querySelectorAll('.post');
+}
+
+function findFirstVisiblePostIndex() {
+    const posts = getAllPosts();
+    for (let i = 0; i < posts.length; i++) {
+        const rect = posts[i].getBoundingClientRect();
+        // Post is visible if its bottom is below the top of the viewport
+        // and its top is at most 60% down the viewport
+        if (rect.bottom > 0 && rect.top < window.innerHeight * 0.6) return i;
+    }
+    return 0;
+}
+
+function focusPost(index) {
+    const posts = getAllPosts();
+    if (posts.length === 0) return;
+    // Clamp
+    index = Math.max(0, Math.min(index, posts.length - 1));
+    // Remove previous focus
+    const prev = document.querySelector('.post-focused');
+    if (prev) prev.classList.remove('post-focused');
+    // Apply new focus
+    const post = posts[index];
+    post.classList.add('post-focused');
+    // Scroll the post to a few px above the top of the viewport
+    const targetY = post.getBoundingClientRect().top + window.scrollY - 12;
+    window.scrollTo({ top: targetY, behavior: 'smooth' });
+    kbFocusIndex = index;
+}
+
+function getFocusedPost() {
+    return document.querySelector('.post-focused');
+}
+
+document.addEventListener('keydown', (e) => {
+    if (!isFeatureEnabled('keyboardNav')) return;
+    // Don't hijack when typing in inputs
+    if (e.target.matches('input, textarea, select, [contenteditable]')) return;
+
+    const key = e.key.toLowerCase();
+
+    if (key === 'j') {
+        // Next post (start from currently visible if no focus yet)
+        if (kbFocusIndex < 0) kbFocusIndex = findFirstVisiblePostIndex() - 1;
+        focusPost(kbFocusIndex + 1);
+        e.preventDefault();
+    } else if (key === 'k') {
+        // Previous post (start from currently visible if no focus yet)
+        if (kbFocusIndex < 0) kbFocusIndex = findFirstVisiblePostIndex() + 1;
+        focusPost(kbFocusIndex - 1);
+        e.preventDefault();
+    } else if (key === ' ') {
+        // Space = toggle comments on focused post
+        const post = getFocusedPost();
+        if (!post) return;
+        e.preventDefault();
+        post.click(); // triggers the existing post click handler
+    } else if (key === 'p') {
+        // Toggle pin on focused post
+        const post = getFocusedPost();
+        if (!post) return;
+        e.preventDefault();
+        const pinForm = post.querySelector('.inline-form');
+        if (pinForm) {
+            pinForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        }
+    } else if (key === 'escape') {
+        const post = getFocusedPost();
+        if (post) {
+            // First: close comments if open
+            const comments = post.querySelector('.post-top-comments');
+            if (comments && !comments.hidden) {
+                comments.hidden = true;
+                return;
+            }
+        }
+        // Then: collapse expanded galleries (existing handler also fires)
+        // Finally: clear focus
+        if (post) {
+            post.classList.remove('post-focused');
+            kbFocusIndex = -1;
+        }
+    }
+});
+
+// ── Restore state on load and after infinite scroll ──
+document.addEventListener('DOMContentLoaded', () => {
+    restoreReadState(document);
+    restoreFavorites(document);
+});
+document.addEventListener('newPostsAdded', (event) => {
+    const root = event.detail?.container || document;
+    restoreReadState(root);
+    restoreFavorites(root);
+});
+
 // Global Video Manager to ensure only one video plays at a time (the most visible one)
 const VideoManager = {
     videos: new Map(), // videoContainer -> intersectionRatio
@@ -929,12 +1179,19 @@ function initMediaResizers(rootElement) {
         // Do not lift CSS caps on init. Ensure default rendering fits container.
         // Skip for gallery images — their CSS width (50%) should be preserved.
         const isGalleryImage = target.classList && target.classList.contains('gallery-image');
+        const isInReadPost = !!target.closest('.post-read');
         if (!container.dataset.wasResized && !isGalleryImage) {
             try {
-                target.style.width = '100%';
+                // Read posts start smaller so they're visually distinct
+                target.style.width = isInReadPost ? '50%' : '100%';
                 target.style.height = 'auto';
                 container.style.width = '';
                 container.style.height = '';
+            } catch (e) {}
+        }
+        if (!container.dataset.wasResized && isGalleryImage && isInReadPost) {
+            try {
+                target.style.width = '30%';
             } catch (e) {}
         }
 
@@ -1070,6 +1327,9 @@ function initMediaResizers(rootElement) {
                 const gallery = container.closest('.gallery');
                 if (gallery) gallery.dataset.didResize = 'true';
                 window.__didMediaResize = true;
+                // Mark post as read after resizing media
+                const post = container.closest('.post');
+                if (post && window.markPostRead) window.markPostRead(post);
             }
         };
 
