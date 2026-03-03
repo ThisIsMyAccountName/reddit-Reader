@@ -345,6 +345,9 @@ document.addEventListener('click', (e) => {
     const gallery = fade.closest('.gallery');
     if (!gallery || gallery.classList.contains('expanded')) return;
 
+    const post = gallery.closest('.post');
+    if (post && window.markPostRead) window.markPostRead(post);
+
     e.stopPropagation();
     expandGallery(gallery);
 }, true);
@@ -367,12 +370,14 @@ function expandGallery(gallery) {
     const rect = gallery.getBoundingClientRect();
     const topBefore = rect.top;
 
+    const collapsedMaxHeight = gallery.style.maxHeight;
+
     // Temporarily remove max-height to measure full content height
     gallery.style.transition = 'none';
     gallery.style.maxHeight = 'none';
     const fullHeight = gallery.scrollHeight;
     // Restore collapsed max-height instantly
-    gallery.style.maxHeight = '';
+    gallery.style.maxHeight = collapsedMaxHeight;
     // Force reflow so the browser registers the starting value
     void gallery.offsetHeight;
     // Now animate to the full height
@@ -404,6 +409,39 @@ function expandGallery(gallery) {
     initMediaResizers(gallery);
 }
 
+const READ_MEDIA_SCALE = 0.5;
+
+function getDefaultCollapsedGalleryHeight(gallery) {
+    const cssMaxHeight = parseFloat(getComputedStyle(gallery).maxHeight);
+    if (Number.isFinite(cssMaxHeight) && cssMaxHeight > 0) return cssMaxHeight;
+    return 650;
+}
+
+function getReadCollapsedGalleryHeight(gallery) {
+    if (!gallery.dataset.readBaseMaxHeight) {
+        gallery.dataset.readBaseMaxHeight = String(getDefaultCollapsedGalleryHeight(gallery));
+    }
+    const base = parseFloat(gallery.dataset.readBaseMaxHeight);
+    if (!Number.isFinite(base) || base <= 0) return getDefaultCollapsedGalleryHeight(gallery);
+    return Math.max(1, Math.round(base * READ_MEDIA_SCALE));
+}
+
+function getTargetCollapsedGalleryHeightStyle(gallery) {
+    const post = gallery.closest('.post');
+    if (post && post.classList.contains('post-read')) {
+        return getReadCollapsedGalleryHeight(gallery) + 'px';
+    }
+    return '';
+}
+
+function getCollapsedGalleryHeightForScroll(gallery, targetStyleValue) {
+    if (targetStyleValue && targetStyleValue.endsWith('px')) {
+        const px = parseFloat(targetStyleValue);
+        if (Number.isFinite(px) && px > 0) return px;
+    }
+    return getDefaultCollapsedGalleryHeight(gallery);
+}
+
 // Smooth collapse: animate max-height back to CSS default, then scroll into view
 function collapseGallery(gallery) {
     // Get current expanded height
@@ -413,8 +451,9 @@ function collapseGallery(gallery) {
     gallery.style.maxHeight = fullHeight + 'px';
     void gallery.offsetHeight;
     // Now animate back to collapsed height (CSS value)
+    const collapsedTarget = getTargetCollapsedGalleryHeightStyle(gallery);
     gallery.style.transition = '';
-    gallery.style.maxHeight = '';
+    gallery.style.maxHeight = collapsedTarget;
 
     gallery.classList.remove('expanded');
 
@@ -422,10 +461,10 @@ function collapseGallery(gallery) {
     const fade = gallery.querySelector('.gallery-fade');
     if (fade) fade.hidden = false;
 
-    // Calculate final scroll position based on the known collapsed max-height (650px)
+    // Calculate final scroll position based on the target collapsed max-height.
     // We compute this immediately since we know the gallery top won't move.
     const galleryTop = gallery.getBoundingClientRect().top + window.scrollY;
-    const collapsedHeight = 650; // matches CSS max-height
+    const collapsedHeight = getCollapsedGalleryHeightForScroll(gallery, collapsedTarget);
     const peekAmount = 240; // px of gallery visible at top of viewport
     const scrollTarget = galleryTop + collapsedHeight - peekAmount;
     // Delay slightly so the collapse animation has started and the page has reflowed
@@ -463,6 +502,65 @@ function saveReadPosts(set) {
     try { sessionStorage.setItem('readPosts', JSON.stringify([...set])); } catch {}
 }
 
+function clearReadVisualState(postEl) {
+    if (!postEl) return;
+    postEl.classList.remove('post-read');
+}
+
+function undimPostUntilExit(postEl) {
+    if (!postEl || !postEl.classList.contains('post-read')) return;
+    clearReadVisualState(postEl);
+    _readObserver.observe(postEl);
+}
+
+function applyReadMediaHalfHeight(postEl) {
+    if (!postEl) return;
+    postEl.querySelectorAll('.post-media.gallery').forEach(gallery => {
+        if (gallery.classList.contains('expanded')) return;
+        gallery.style.maxHeight = getReadCollapsedGalleryHeight(gallery) + 'px';
+    });
+    postEl.querySelectorAll('.post-image, .post-video').forEach(media => {
+        const container = media.closest('.gallery-item') || media.closest('.post-media') || media.closest('.video-container') || media.parentElement;
+
+        const apply = () => {
+            if (!postEl.classList.contains('post-read')) return;
+            if (container) {
+                container.style.width = '';
+                container.style.height = '';
+                container.style.overflow = '';
+                delete container.dataset.wasResized;
+            }
+            const measured = media.getBoundingClientRect().height;
+            if (!media.dataset.readBaseHeight && measured > 1) {
+                media.dataset.readBaseHeight = String(measured);
+            }
+            const baseHeight = parseFloat(media.dataset.readBaseHeight);
+            if (!baseHeight || baseHeight < 2) return;
+            media.style.maxHeight = 'none';
+            media.style.height = Math.round(baseHeight / 2) + 'px';
+            media.style.width = 'auto';
+            media.dataset.readScaled = 'true';
+
+            if (media.classList && media.classList.contains('post-video') && container) {
+                container.style.height = media.style.height;
+                container.style.width = 'fit-content';
+                container.style.marginLeft = 'auto';
+                container.style.marginRight = 'auto';
+            }
+        };
+
+        if (media instanceof HTMLImageElement && !media.complete) {
+            media.addEventListener('load', () => requestAnimationFrame(apply), { once: true });
+            return;
+        }
+        if (media instanceof HTMLVideoElement && media.readyState < 1) {
+            media.addEventListener('loadedmetadata', () => requestAnimationFrame(apply), { once: true });
+            return;
+        }
+        requestAnimationFrame(apply);
+    });
+}
+
 // Interacted posts that haven't scrolled out yet (pending dimming)
 const _interactedPostIds = getReadPosts(); // seed from storage
 
@@ -474,6 +572,7 @@ const _readObserver = new IntersectionObserver((entries) => {
         if (!id) return;
         if (!entry.isIntersecting && _interactedPostIds.has(id)) {
             post.classList.add('post-read');
+            applyReadMediaHalfHeight(post);
         }
     });
 }, { threshold: 0 });
@@ -482,6 +581,7 @@ function markPostRead(postEl) {
     if (!isFeatureEnabled('readDimming')) return;
     const id = postEl?.dataset?.postId;
     if (!id) return;
+    undimPostUntilExit(postEl);
     _interactedPostIds.add(id);
     const readSet = getReadPosts();
     readSet.add(id);
@@ -497,6 +597,7 @@ function restoreReadState(root) {
         if (readSet.has(post.dataset.postId)) {
             // Interacted in a previous load — dim immediately + observe
             post.classList.add('post-read');
+            applyReadMediaHalfHeight(post);
             _readObserver.observe(post);
         }
     });
@@ -504,6 +605,21 @@ function restoreReadState(root) {
 // Expose globally so posts.js can call it
 window.markPostRead = markPostRead;
 window.restoreReadState = restoreReadState;
+
+// Interacting with a dimmed post undims it until it leaves the viewport again.
+document.addEventListener('pointerdown', (event) => {
+    if (!isFeatureEnabled('readDimming')) return;
+    const post = event.target.closest('.post.post-read');
+    if (!post) return;
+    undimPostUntilExit(post);
+}, true);
+
+document.addEventListener('focusin', (event) => {
+    if (!isFeatureEnabled('readDimming')) return;
+    const post = event.target.closest('.post.post-read');
+    if (!post) return;
+    undimPostUntilExit(post);
+}, true);
 
 // ── Feature: Favorites ──
 // Click the heart icon (desktop) or double-tap (mobile) to toggle favorite.
@@ -683,10 +799,15 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ── Restore state on load and after infinite scroll ──
-document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        restoreReadState(document);
+        restoreFavorites(document);
+    });
+} else {
     restoreReadState(document);
     restoreFavorites(document);
-});
+}
 document.addEventListener('newPostsAdded', (event) => {
     const root = event.detail?.container || document;
     restoreReadState(root);
@@ -1165,6 +1286,19 @@ function initMediaResizers(rootElement) {
         const target = el.classList && el.classList.contains('post-media') ? (el.querySelector('img') || el.querySelector('video')) : el;
         if (!target) return;
 
+        const primeReadBaseHeight = () => {
+            if (target.dataset.readBaseHeight) return;
+            const h = target.getBoundingClientRect().height;
+            if (h && h > 1) target.dataset.readBaseHeight = String(h);
+        };
+        if (target instanceof HTMLImageElement && !target.complete) {
+            target.addEventListener('load', () => requestAnimationFrame(primeReadBaseHeight), { once: true });
+        } else if (target instanceof HTMLVideoElement && target.readyState < 1) {
+            target.addEventListener('loadedmetadata', () => requestAnimationFrame(primeReadBaseHeight), { once: true });
+        } else {
+            requestAnimationFrame(primeReadBaseHeight);
+        }
+
         // For gallery images, use the .gallery-item wrapper so each image resizes independently
         let container = null;
         if (target.closest && target.closest('.gallery-item')) {
@@ -1179,19 +1313,14 @@ function initMediaResizers(rootElement) {
         // Do not lift CSS caps on init. Ensure default rendering fits container.
         // Skip for gallery images — their CSS width (50%) should be preserved.
         const isGalleryImage = target.classList && target.classList.contains('gallery-image');
-        const isInReadPost = !!target.closest('.post-read');
         if (!container.dataset.wasResized && !isGalleryImage) {
             try {
-                // Read posts start smaller so they're visually distinct
-                target.style.width = isInReadPost ? '50%' : '100%';
+                // Keep default media sizing on init; read-state sizing is applied separately.
+                target.style.maxHeight = '';
+                target.style.width = '100%';
                 target.style.height = 'auto';
                 container.style.width = '';
                 container.style.height = '';
-            } catch (e) {}
-        }
-        if (!container.dataset.wasResized && isGalleryImage && isInReadPost) {
-            try {
-                target.style.width = '30%';
             } catch (e) {}
         }
 
