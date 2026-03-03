@@ -573,6 +573,7 @@ const _readObserver = new IntersectionObserver((entries) => {
         if (!entry.isIntersecting && _interactedPostIds.has(id)) {
             post.classList.add('post-read');
             applyReadMediaHalfHeight(post);
+            if (typeof VideoManager !== 'undefined') VideoManager.updatePlayback();
         }
     });
 }, { threshold: 0 });
@@ -818,6 +819,11 @@ document.addEventListener('newPostsAdded', (event) => {
 const VideoManager = {
     videos: new Map(), // videoContainer -> intersectionRatio
     observer: null,
+
+    isAutoplayEligible(container) {
+        const post = container?.closest('.post');
+        return !(post && post.classList.contains('post-read'));
+    },
     
     init() {
         if (this.observer) return;
@@ -849,6 +855,7 @@ const VideoManager = {
         let maxRatio = 0;
         
         for (const [container, ratio] of this.videos.entries()) {
+            if (!this.isAutoplayEligible(container)) continue;
             if (ratio > maxRatio) {
                 maxRatio = ratio;
                 bestContainer = container;
@@ -865,6 +872,10 @@ const VideoManager = {
     },
     
     playOnly(targetContainer, isAutoplay = false) {
+        if (isAutoplay && targetContainer && !this.isAutoplayEligible(targetContainer)) {
+            targetContainer = null;
+        }
+
         // If the target container was manually paused by the user, try to find
         // another visible container that is not manually paused. If none,
         // keep everything paused.
@@ -873,6 +884,7 @@ const VideoManager = {
             let fallback = null;
             let bestRatio = 0;
             for (const [container, ratio] of this.videos.entries()) {
+                if (isAutoplay && !this.isAutoplayEligible(container)) continue;
                 if (container.dataset.manualPaused === 'true') continue;
                 if (ratio > bestRatio && ratio > 0.4) {
                     bestRatio = ratio;
