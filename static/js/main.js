@@ -461,16 +461,26 @@ function collapseGallery(gallery) {
     const fade = gallery.querySelector('.gallery-fade');
     if (fade) fade.hidden = false;
 
-    // Calculate final scroll position based on the target collapsed max-height.
-    // We compute this immediately since we know the gallery top won't move.
-    const galleryTop = gallery.getBoundingClientRect().top + window.scrollY;
-    const collapsedHeight = getCollapsedGalleryHeightForScroll(gallery, collapsedTarget);
-    const peekAmount = 240; // px of gallery visible at top of viewport
-    const scrollTarget = galleryTop + collapsedHeight - peekAmount;
-    // Delay slightly so the collapse animation has started and the page has reflowed
-    setTimeout(() => {
-        window.scrollTo({ top: scrollTarget, behavior: 'smooth' });
-    }, 50);
+    // Scroll to the top of the next post below this gallery so it's clear
+    // the user is on the following post, not lost in the middle of the page.
+    const postEl = gallery.closest('.post');
+    const nextPost = postEl ? postEl.nextElementSibling : null;
+    if (nextPost && nextPost.classList.contains('post')) {
+        const offset = 25; // px above the next post top
+        setTimeout(() => {
+            const nextPostTop = nextPost.getBoundingClientRect().top + window.scrollY;
+            window.scrollTo({ top: nextPostTop - offset, behavior: 'smooth' });
+        }, 50);
+    } else {
+        // Last post — fall back to showing bottom of collapsed gallery
+        const galleryTop = gallery.getBoundingClientRect().top + window.scrollY;
+        const collapsedHeight = getCollapsedGalleryHeightForScroll(gallery, collapsedTarget);
+        const peekAmount = 240;
+        const scrollTarget = galleryTop + collapsedHeight - peekAmount;
+        setTimeout(() => {
+            window.scrollTo({ top: scrollTarget, behavior: 'smooth' });
+        }, 50);
+    }
 }
 
 // Allow ESC to collapse any expanded galleries
@@ -1081,6 +1091,11 @@ function initVideoControls(rootElement) {
         video.addEventListener('click', (e) => {
             // Prevent clicks on media from toggling comments
             e.stopPropagation();
+            // Ignore click that fires after a drag-resize
+            if (window.__didMediaResize) {
+                window.__didMediaResize = false;
+                return;
+            }
             // First click unmutes to user's default volume
             if (container.dataset.firstClick === 'true' && (video.muted || video.volume === 0)) {
                 container.dataset.firstClick = 'false';

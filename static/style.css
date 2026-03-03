@@ -532,6 +532,10 @@ body {
     transition: transform 0.15s ease, color 0.15s ease;
     opacity: 0.4;
     color: var(--text-secondary);
+    padding: 4px 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .favorite-icon:hover {
     transform: scale(1.25);
@@ -848,14 +852,21 @@ body {
         width: 95%;
         max-width: 95%;
     }
+    .gallery-fade {
+        width: 95%;
+    }
+    .gallery-collapse {
+        width: 95%;
+    }
 }
 
 /* Fade overlay at the bottom of collapsed gallery — clickable to expand */
 .gallery-fade {
     position: absolute;
     bottom: 0;
-    left: 0;
-    right: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50%;
     height: 140px;
     background: linear-gradient(to bottom, transparent 0%, var(--bg-primary) 90%);
     z-index: 5;
@@ -900,7 +911,8 @@ body {
 /* Collapse bar at the bottom of expanded gallery — sticky to viewport */
 .gallery-collapse {
     display: none;
-    width: 100%;
+    width: 50%;
+    margin: 0 auto;
     height: 140px;
     align-items: flex-end;
     justify-content: center;
