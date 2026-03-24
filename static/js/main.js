@@ -141,6 +141,159 @@ document.addEventListener('click', (event) => {
     comment.classList.toggle('collapsed');
 });
 
+/*
+ * SINGLE-POST META ACTIONS
+ * Mirrors the mobile condensed actions menu from the feed page.
+ */
+(function() {
+    // Feed page has its own implementation in posts.js.
+    if (document.getElementById('posts-container')) return;
+
+    const singlePost = document.querySelector('.single-post');
+    if (!singlePost) return;
+
+    function setupShareButtons(root = document) {
+        const shareBtns = root.querySelectorAll('.share-btn');
+        shareBtns.forEach(btn => {
+            if (btn._shareHandlerAttached) return;
+            btn._shareHandlerAttached = true;
+            btn.addEventListener('click', async (e) => {
+                if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const path = btn.getAttribute('data-share-path') || '';
+                const url = path.startsWith('http') ? path : (window.location.origin + path);
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(url);
+                    } else {
+                        const ta = document.createElement('textarea');
+                        ta.value = url;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                    }
+                    const original = btn.textContent;
+                    btn.textContent = '✅';
+                    btn.disabled = true;
+                    setTimeout(() => {
+                        btn.textContent = original;
+                        btn.disabled = false;
+                    }, 1500);
+                } catch (err) {
+                    console.error('Copy failed', err);
+                }
+            });
+        });
+    }
+
+    function closeMetaMenus() {
+        document.querySelectorAll('.single-post .meta-menu').forEach(menu => {
+            if (!menu.hidden) {
+                menu.hidden = true;
+                menu.setAttribute('aria-hidden', 'true');
+            }
+        });
+        document.querySelectorAll('.single-post .meta-menu-toggle').forEach(toggle => {
+            toggle.setAttribute('aria-expanded', 'false');
+        });
+    }
+
+    setupShareButtons(document);
+
+    document.addEventListener('click', (e) => {
+        const toggle = e.target.closest('.single-post .meta-menu-toggle');
+        if (toggle) {
+            e.stopPropagation();
+            const post = toggle.closest('.single-post');
+            if (!post) return;
+            const menu = post.querySelector('.meta-menu');
+            const actions = post.querySelector('.post-meta-actions');
+            if (!menu || !actions) return;
+
+            if (menu.hidden) {
+                closeMetaMenus();
+
+                menu.innerHTML = actions.innerHTML;
+                menu.querySelectorAll('.post-upvotes').forEach(n => n.remove());
+
+                menu.querySelectorAll('.meta-action-btn, form.inline-form').forEach(node => {
+                    if (node.tagName === 'FORM') {
+                        const btn = node.querySelector('button');
+                        if (btn) {
+                            let labelText = '';
+                            if (btn.classList.contains('pin-btn')) labelText = 'Pin';
+                            else if (btn.classList.contains('unpin-btn')) labelText = 'Unpin';
+                            else if (btn.classList.contains('ban-btn')) labelText = 'Ban';
+                            else labelText = (btn.getAttribute('title') || btn.getAttribute('aria-label') || btn.textContent || '').trim();
+
+                            if (!btn.querySelector('.meta-action-label')) {
+                                const span = document.createElement('span');
+                                span.className = 'meta-action-label';
+                                span.textContent = labelText ? (' ' + labelText) : '';
+                                btn.appendChild(span);
+                            }
+                        }
+                    } else {
+                        let labelText = '';
+                        if (node.classList && node.classList.contains('pin-btn')) labelText = 'Pin';
+                        else if (node.classList && node.classList.contains('unpin-btn')) labelText = 'Unpin';
+                        else if (node.classList && node.classList.contains('ban-btn')) labelText = 'Ban';
+                        else labelText = (node.getAttribute('title') || node.getAttribute('aria-label') || node.textContent || '').trim();
+
+                        if (!node.querySelector('.meta-action-label')) {
+                            const span = document.createElement('span');
+                            span.className = 'meta-action-label';
+                            span.textContent = labelText ? (' ' + labelText) : '';
+                            node.appendChild(span);
+                        }
+                    }
+                });
+
+                menu.hidden = false;
+                menu.setAttribute('aria-hidden', 'false');
+                toggle.setAttribute('aria-expanded', 'true');
+                setupShareButtons(menu);
+
+                menu.style.right = 'auto';
+                const toggleRect = toggle.getBoundingClientRect();
+                const postRect = post.getBoundingClientRect();
+                let left = toggleRect.left - postRect.left;
+                const top = toggleRect.bottom - postRect.top;
+
+                menu.style.left = left + 'px';
+                menu.style.top = top + 'px';
+
+                const menuRect = menu.getBoundingClientRect();
+                const overflowRight = menuRect.right - postRect.right;
+                if (overflowRight > 0) {
+                    left = left - overflowRight - 8;
+                    menu.style.left = Math.max(8, left) + 'px';
+                }
+
+                const updatedMenuRect = menu.getBoundingClientRect();
+                if (updatedMenuRect.left < postRect.left + 8) {
+                    menu.style.left = '8px';
+                }
+            } else {
+                closeMetaMenus();
+            }
+            return;
+        }
+
+        if (!e.target.closest('.single-post .meta-menu')) {
+            closeMetaMenus();
+        }
+    }, true);
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 480) {
+            closeMetaMenus();
+        }
+    });
+})();
+
 
 
 // Close context menu on any click

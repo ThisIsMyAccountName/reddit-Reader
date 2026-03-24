@@ -4,60 +4,63 @@
 {% block title %}{{ post.title }} - Reddit Reader{% endblock %}
 
 {% block content %}
-<div class="main-content" style="margin: 0 auto;">
-<div style="margin-bottom: 20px;">
+<div class="main-content comments-main-content">
+<div class="comments-back-link-wrap">
     <a href="{{ url_for('subreddit', name=post.subreddit) }}" class="btn">
         ← Back to r/{{ post.subreddit }}
     </a>
 </div>
 
-<article class="post-detail">
-    <h1 style="font-size: 24px; margin-bottom: 15px;">{{ post.title }}</h1>
-    
-    <div class="post-meta">
-        <span class="post-meta-item">
-            👤 <span class="post-author">u/{{ post.author }}</span>
-        </span>
-        <span class="post-meta-item">
-            📍 r/{{ post.subreddit }}
-        </span>
-        <span class="post-meta-item">
-            ⬆️ {{ "{:,}".format(post.score) }}
-        </span>
-        <span class="post-meta-item">
-            💬 {{ "{:,}".format(post.num_comments) }} comments
-        </span>
-        <span class="post-meta-item">
-            🕐 {{ post.created_utc | format_timestamp }}
-        </span>
+<article class="post single-post" data-subreddit="{{ post.subreddit }}" data-post-id="{{ post.id }}">
+    <div class="post-header">
+        <div class="post-meta-left">
+            <a href="{{ url_for('subreddit', name=post.subreddit) }}" class="subreddit-link-inline trunc">r/{{ post.subreddit }}</a>
+            <span class="meta-text post-author trunc">u/{{ post.author }}</span>
+            <span class="meta-text comments-post-date">{{ post.created_utc | format_timestamp }}</span>
+        </div>
+        <div class="post-meta-actions">
+            <span class="meta-text post-upvotes">⬆️{{ post.score }}</span>
+            {% if current_user.is_authenticated %}
+                {% if post.subreddit in feed_pinned_subs %}
+                <form method="post" action="{{ url_for('unpin_subreddit', subreddit=post.subreddit) }}" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="meta-action-btn unpin-btn" title="Unpin r/{{ post.subreddit }}">📍</button>
+                </form>
+                {% elif post.subreddit not in pinned_subs %}
+                <form method="post" action="{{ url_for('pin_subreddit', subreddit=post.subreddit) }}" class="inline-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="meta-action-btn pin-btn" title="Pin r/{{ post.subreddit }}">📌</button>
+                </form>
+                {% endif %}
+            {% endif %}
+            {% if not post.is_self %}
+            <a href="{{ post.url }}" target="_blank" class="meta-action-btn" title="Link" rel="noopener noreferrer">🔗</a>
+            {% endif %}
+            <a href="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" class="meta-action-btn share-btn" data-share-path="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" title="Share" rel="noopener noreferrer">🔁</a>
+            <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="Reddit" rel="noopener noreferrer">📤</a>
+            {% if current_user.is_authenticated and post.subreddit != current_subreddit %}
+            <form method="post" action="{{ url_for('ban_subreddit', subreddit=post.subreddit) }}" class="inline-form" onsubmit="return confirm('Ban r/{{ post.subreddit }}? Posts from this subreddit will be hidden.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="meta-action-btn ban-btn" title="Ban r/{{ post.subreddit }}">🚫</button>
+            </form>
+            {% endif %}
+        </div>
+        <button class="meta-menu-toggle" aria-haspopup="true" aria-expanded="false" title="Actions">☰</button>
+        <div class="meta-menu" hidden aria-hidden="true"></div>
     </div>
+
+    <h1 class="post-title comments-post-title">{{ post.title }}</h1>
     
     {{ render_media(post) }}
 
     {% if post.selftext %}
-    <div class="post-selftext" style="border-top: 1px solid var(--border); margin-top: 15px; padding-top: 15px;">
+    <div class="post-text-content comments-post-text expanded">
         {{ post.selftext | format_content | safe }}
     </div>
     {% endif %}
-    
-    <div class="post-actions">
-        {% if not post.is_self %}
-        <a href="{{ post.url }}" target="_blank" class="btn btn-primary">
-            🔗 View Link
-        </a>
-        {% endif %}
-        <a href="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" class="btn">
-            🔁 Share
-        </a>
-        <a href="{{ post.permalink }}" target="_blank" class="btn">
-            🔗 View on Reddit
-        </a>
-    </div>
 </article>
 
-<h2 style="margin-bottom: 15px; font-size: 20px;">
-    💬 Comments ({{ comments|length }})
-</h2>
+<h2 class="comments-heading">💬 Comments ({{ comments|length }})</h2>
 
 {% if comments %}
     {% for comment in comments %}
@@ -83,7 +86,7 @@
     </div>
     {% endfor %}
 {% else %}
-    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+    <div class="comments-empty-state">
         <p>No comments yet</p>
     </div>
 {% endif %}

@@ -175,9 +175,8 @@
                             <button type="submit" class="meta-action-btn pin-btn" title="Pin r/${safeSub}">📌</button>
                         </form>
                         ` : ''}
-                        ${!post.is_self ? `<a href="${safeUrl}" target="_blank" class="meta-action-btn" title="Open link">🔗</a>` : ''}
                         <a href="/r/${encodeURIComponent(post.subreddit)}/comments/${encodeURIComponent(post.id)}/share" class="meta-action-btn share-btn" data-share-path="/r/${encodeURIComponent(post.subreddit)}/comments/${encodeURIComponent(post.id)}/share" title="Share" rel="noopener noreferrer">🔁</a>
-                        <a href="${safePermalink}" target="_blank" class="meta-action-btn" title="View on Reddit">📤</a>
+                        <a href="${safePermalink}" target="_blank" class="meta-action-btn" title="Reddit">📤</a>
                         ${isAuthenticated && post.subreddit !== subreddit ? `
                         <form method="post" action="/ban/${encodeURIComponent(post.subreddit)}" class="inline-form" onsubmit="return confirm('Ban r/${safeSub}? Posts from this subreddit will be hidden.')">
                             <input type="hidden" name="csrf_token" value="${window.csrfToken}">

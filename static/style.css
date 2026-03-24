@@ -1395,6 +1395,50 @@ body {
     margin-bottom: 20px;
 }
 
+.comments-main-content {
+    margin: 0 auto;
+}
+
+.comments-back-link-wrap {
+    margin-bottom: 20px;
+}
+
+.single-post {
+    margin-bottom: 18px;
+    padding-top: 0;
+}
+
+.single-post .post-header {
+    margin-bottom: 10px;
+}
+
+.comments-post-title {
+    font-size: 24px;
+    line-height: 1.28;
+    margin-bottom: 14px;
+}
+
+.comments-post-date {
+    white-space: nowrap;
+}
+
+.comments-post-text {
+    margin-top: 15px;
+    padding-top: 15px;
+    cursor: default;
+}
+
+.comments-heading {
+    margin-bottom: 15px;
+    font-size: 20px;
+}
+
+.comments-empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
 .comment {
     background: rgba(255, 255, 255, 0.03);
     border: none;
@@ -2158,6 +2202,15 @@ body {
     
     .comment-replies {
         margin-top: 4px;
+    }
+
+    .comments-post-title {
+        font-size: 20px;
+        margin-bottom: 12px;
+    }
+
+    .comments-post-date {
+        display: none;
     }
 }
 

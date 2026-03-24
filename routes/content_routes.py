@@ -58,7 +58,12 @@ def register_content_routes(app, reader) -> None:
         post = build_post_view_model(post_data, media)
         comments_list = reader.parse_comments(comments_payload)
 
-        return render_template("comments.html", post=post, comments=comments_list)
+        return render_template(
+            "comments.html",
+            post=post,
+            comments=comments_list,
+            current_subreddit=subreddit,
+        )
 
     @app.route("/r/<subreddit>/comments/<post_id>/share")
     def share_post(subreddit, post_id):
