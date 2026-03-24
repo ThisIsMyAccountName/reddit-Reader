@@ -295,74 +295,19 @@ document.addEventListener('click', (event) => {
 })();
 
 
+function buildDownloadEndpoint(button) {
+    const sourceUrl = button.dataset.downloadUrl || '';
+    const filename = button.dataset.downloadFilename || '';
+    const title = button.dataset.postTitle || '';
+    const postId = button.dataset.postId || '';
 
-// Close context menu on any click
-document.addEventListener('click', () => {
-    closeDownloadMenu();
-});
-
-// Right-click on media to open download menu
-document.addEventListener('contextmenu', (event) => {
-    const video = event.target.closest('.post-video');
-    const image = event.target.closest('.post-image, .gallery-image');
-    
-    let url = null;
-    if (video) {
-        url = video.src || video.currentSrc;
-    } else if (image) {
-        url = image.src || image.currentSrc;
-    }
-    
-    if (url) {
-        event.preventDefault();
-        openDownloadMenu(event.clientX, event.clientY, url);
-    }
-});
-
-function openDownloadMenu(x, y, url) {
-    closeDownloadMenu();
-
-    const menu = document.createElement('div');
-    menu.className = 'media-download-menu';
-    menu.style.left = `${x}px`;
-    menu.style.top = `${y}px`;
-
-    const downloadBtn = document.createElement('button');
-    downloadBtn.textContent = 'Download';
-    downloadBtn.addEventListener('click', () => {
-        const filename = getFilenameFromUrl(url);
-        triggerDownload(url, filename);
-        closeDownloadMenu();
+    const params = new URLSearchParams({
+        url: sourceUrl,
+        filename,
+        title,
+        post_id: postId,
     });
-
-    const renameBtn = document.createElement('button');
-    renameBtn.textContent = 'Download as...';
-    renameBtn.addEventListener('click', async () => {
-        const defaultName = getFilenameFromUrl(url);
-        const customName = prompt('Save file as:', defaultName);
-        if (customName) {
-            await triggerDownload(url, customName);
-        }
-        closeDownloadMenu();
-    });
-
-    menu.appendChild(downloadBtn);
-    menu.appendChild(renameBtn);
-    document.body.appendChild(menu);
-}
-
-function closeDownloadMenu() {
-    document.querySelectorAll('.media-download-menu').forEach(menu => menu.remove());
-}
-
-function getFilenameFromUrl(url) {
-    try {
-        const parsed = new URL(url);
-        const pathname = parsed.pathname.split('/').pop() || 'media';
-        return decodeURIComponent(pathname.split('?')[0]);
-    } catch {
-        return 'media';
-    }
+    return `/api/download?${params.toString()}`;
 }
 
 // Basic HTML escape helper used for client-rendered comment fallbacks
@@ -376,22 +321,49 @@ function escapeHTML(str) {
         .replace(/'/g, '&#039;');
 }
 
-async function triggerDownload(url, filename) {
+async function triggerDownload(button) {
+    const endpoint = buildDownloadEndpoint(button);
+
     try {
-        const response = await fetch(url, { mode: 'cors' });
+        const response = await fetch(endpoint, { credentials: 'same-origin' });
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            const message = payload.error || 'Download failed';
+            throw new Error(message);
+        }
+
+        const filename = button.dataset.downloadFilename || 'media.bin';
         const blob = await response.blob();
         const objectUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = objectUrl;
-        link.download = filename || 'media';
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         link.remove();
         URL.revokeObjectURL(objectUrl);
-    } catch {
-        window.open(url, '_blank');
+    } catch (err) {
+        console.error('Download failed', err);
+        alert(err.message || 'Download failed. Please try again.');
     }
 }
+
+document.addEventListener('click', async (event) => {
+    const downloadBtn = event.target.closest('.download-action');
+    if (!downloadBtn) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (downloadBtn.disabled) return;
+
+    const originalText = downloadBtn.textContent;
+    downloadBtn.disabled = true;
+    downloadBtn.textContent = '…';
+    await triggerDownload(downloadBtn);
+    downloadBtn.textContent = originalText;
+    downloadBtn.disabled = false;
+});
 
 function createCommentElement(comment, depth = 0, showAuthor = true) {
     const item = document.createElement('div');

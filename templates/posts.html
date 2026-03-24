@@ -107,6 +107,17 @@
                     {% endif %}
                 {% endif %}
                 <a href="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" class="meta-action-btn share-btn" data-share-path="{{ url_for('share_post', subreddit=post.subreddit, post_id=post.id) }}" title="Share" rel="noopener noreferrer">🔁</a>
+                {% if post.has_downloadable_media %}
+                <button
+                    type="button"
+                    class="meta-action-btn download-action"
+                    title="Download"
+                    data-download-url="{{ post.download_url }}"
+                    data-download-filename="{{ post.download_filename }}"
+                    data-post-title="{{ post.title }}"
+                    data-post-id="{{ post.id }}"
+                >💾</button>
+                {% endif %}
                 <a href="{{ post.permalink }}" target="_blank" class="meta-action-btn" title="Reddit">📤</a>
                 {% if current_user.is_authenticated and post.subreddit != subreddit %}
                 <form method="post" action="{{ url_for('ban_subreddit', subreddit=post.subreddit) }}" class="inline-form" onsubmit="return confirm('Ban r/{{ post.subreddit }}? Posts from this subreddit will be hidden.')">

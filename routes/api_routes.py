@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 import logging
-from services.cache import ThreadSafeTTLCache
+from urllib.parse import unquote
 
-from flask import jsonify, request
+import requests
+from services.cache import ThreadSafeTTLCache
+from services.download_service import (
+    build_default_filename,
+    is_allowed_media_url,
+    parse_allowed_media_hosts,
+    sanitize_filename,
+)
+
+from flask import Response, jsonify, request, stream_with_context
 from flask_login import current_user
 
 import config
@@ -19,6 +28,15 @@ logger = logging.getLogger(__name__)
 def register_api_routes(app, reader) -> None:
     # Thread-safe TTL LRU cache for autocomplete responses
     _autocomplete_cache = ThreadSafeTTLCache(maxsize=config.AUTOCOMPLETE_CACHE_MAXSIZE, ttl=config.AUTOCOMPLETE_CACHE_TTL)
+    _allowed_hosts = parse_allowed_media_hosts(config.DOWNLOAD_ALLOWED_MEDIA_HOSTS)
+
+    def _iter_upstream_chunks(upstream_response: requests.Response, chunk_size: int = 64 * 1024):
+        try:
+            for chunk in upstream_response.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    yield chunk
+        finally:
+            upstream_response.close()
 
     @app.route("/api/comments")
     def api_comments():
@@ -93,3 +111,50 @@ def register_api_routes(app, reader) -> None:
         except Exception as exc:
             logger.exception("Error in /api/subreddit_autocomplete")
             return jsonify({"results": []}), 500
+
+    @app.route("/api/download")
+    def api_download():
+        source_url = (request.args.get("url") or "").strip()
+        requested_filename = (request.args.get("filename") or "").strip()
+        title_hint = (request.args.get("title") or "").strip()
+        post_id_hint = (request.args.get("post_id") or "").strip()
+
+        if not source_url:
+            return jsonify({"error": "Missing url parameter"}), 400
+
+        source_url = unquote(source_url)
+        if not is_allowed_media_url(source_url, _allowed_hosts):
+            return jsonify({"error": "Media URL is not allowed"}), 400
+
+        filename = sanitize_filename(requested_filename, fallback="") if requested_filename else ""
+        if not filename:
+            filename = build_default_filename(title_hint, post_id_hint, source_url)
+
+        try:
+            upstream = reader.session.get(
+                source_url,
+                headers=reader.headers,
+                stream=True,
+                timeout=config.REQUEST_TIMEOUT,
+            )
+
+            if upstream.status_code >= 400:
+                status_code = upstream.status_code if upstream.status_code < 500 else 502
+                upstream.close()
+                return jsonify({"error": f"Upstream media request failed ({upstream.status_code})"}), status_code
+
+            content_type = upstream.headers.get("Content-Type", "application/octet-stream")
+            content_length = upstream.headers.get("Content-Length")
+
+            response = Response(
+                stream_with_context(_iter_upstream_chunks(upstream)),
+                content_type=content_type,
+            )
+            response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
+            response.headers["Cache-Control"] = "no-store"
+            if content_length and content_length.isdigit():
+                response.headers["Content-Length"] = content_length
+            return response
+        except requests.RequestException as exc:
+            logger.warning("Download proxy failed for %s: %s", source_url, exc)
+            return jsonify({"error": "Failed to fetch media from upstream source"}), 502

@@ -97,6 +97,9 @@
         const safeSub = escapeHTML(post.subreddit || '');
         const safePermalink = escapeHTML(post.permalink || '');
         const safeUrl = escapeHTML(post.url || '');
+        const safeDownloadUrl = escapeHTML(post.download_url || '');
+        const safeDownloadFilename = escapeHTML(post.download_filename || '');
+        const safePostId = escapeHTML(post.id || '');
 
         // Simple HTML escape and newline to br for selftext
         const selftextRaw = post.selftext || '';
@@ -176,6 +179,9 @@
                         </form>
                         ` : ''}
                         <a href="/r/${encodeURIComponent(post.subreddit)}/comments/${encodeURIComponent(post.id)}/share" class="meta-action-btn share-btn" data-share-path="/r/${encodeURIComponent(post.subreddit)}/comments/${encodeURIComponent(post.id)}/share" title="Share" rel="noopener noreferrer">🔁</a>
+                        ${post.has_downloadable_media ? `
+                        <button type="button" class="meta-action-btn download-action" title="Download" data-download-url="${safeDownloadUrl}" data-download-filename="${safeDownloadFilename}" data-post-title="${safeTitle}" data-post-id="${safePostId}">💾</button>
+                        ` : ''}
                         <a href="${safePermalink}" target="_blank" class="meta-action-btn" title="Reddit">📤</a>
                         ${isAuthenticated && post.subreddit !== subreddit ? `
                         <form method="post" action="/ban/${encodeURIComponent(post.subreddit)}" class="inline-form" onsubmit="return confirm('Ban r/${safeSub}? Posts from this subreddit will be hidden.')">

@@ -155,9 +155,15 @@ class RedditReader:
                 hls_url = reddit_video.get("hls_url", "")
                 fallback_url = reddit_video.get("fallback_url", "")
                 if fallback_url:
-                    video_url = fallback_url.split("?")[0]
-                    base = fallback_url.split("?")[0].rsplit("/", 1)[0]
+                    # Keep signed query params on Reddit CDN URLs; stripping them causes 403.
+                    clean_fallback_url = html.unescape(fallback_url)
+                    video_url = clean_fallback_url
+
+                    fallback_path, _, fallback_query = clean_fallback_url.partition("?")
+                    base = fallback_path.rsplit("/", 1)[0]
                     audio_url = f"{base}/DASH_AUDIO_128.mp4"
+                    if fallback_query:
+                        audio_url = f"{audio_url}?{fallback_query}"
 
         # Gallery / album
         if post_data.get("is_gallery"):

@@ -943,34 +943,6 @@ body {
     display: none;
 }
 
-.media-download-menu {
-    position: fixed;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 6px;
-    z-index: 2000;
-    min-width: 160px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
-}
-
-.media-download-menu button {
-    width: 100%;
-    background: transparent;
-    border: none;
-    color: var(--text-primary);
-    padding: 8px 10px;
-    text-align: left;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-}
-
-.media-download-menu button:hover {
-    background: var(--bg-tertiary);
-    color: var(--accent);
-}
-
 .post-image {
     display: block;
     max-width: 100%;

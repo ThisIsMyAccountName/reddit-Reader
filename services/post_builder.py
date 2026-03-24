@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from services.download_service import build_download_metadata
+
 
 def build_post_view_model(post_data: dict[str, Any], media: dict[str, Any], thumbnail: str = "") -> dict[str, Any]:
     """Normalize a Reddit post payload into template/API friendly fields."""
+    download = build_download_metadata(post_data, media)
+
     return {
         "title": post_data.get("title", ""),
         "author": post_data.get("author", "[deleted]"),
@@ -26,4 +30,8 @@ def build_post_view_model(post_data: dict[str, Any], media: dict[str, Any], thum
         "audio_url": media["audio_url"],
         "hls_url": media["hls_url"],
         "gallery_urls": media["gallery_urls"],
+        "has_downloadable_media": download["has_downloadable_media"],
+        "download_kind": download["download_kind"],
+        "download_url": download["download_url"],
+        "download_filename": download["download_filename"],
     }

@@ -32,6 +32,7 @@ REMEMBER_COOKIE_DURATION = int(os.getenv("REMEMBER_COOKIE_DURATION", "2592000"))
 # API settings
 REQUEST_TIMEOUT = int(os.getenv("REQUEST_TIMEOUT", "10"))  # seconds
 MAX_POSTS_PER_REQUEST = int(os.getenv("MAX_POSTS_PER_REQUEST", "100"))  # Reddit's max
+DOWNLOAD_ALLOWED_MEDIA_HOSTS = os.getenv("DOWNLOAD_ALLOWED_MEDIA_HOSTS", "reddit.com,redd.it,redditmedia.com")
 
 # Autocomplete cache settings
 AUTOCOMPLETE_CACHE_TTL = int(os.getenv("AUTOCOMPLETE_CACHE_TTL", "60"))  # seconds
