@@ -462,32 +462,29 @@ document.addEventListener('newPostsAdded', (event) => {
     initMediaResizers(container);
 });
 
-// Gallery expand: click the fade overlay / badge to expand
+// Gallery toggle: one explicit button for expand/collapse
 document.addEventListener('click', (e) => {
-    const fade = e.target.closest('.gallery-fade');
-    if (!fade) return;
+    const toggleButton = e.target.closest('.gallery-toggle-btn');
+    if (!toggleButton) return;
 
-    const gallery = fade.closest('.gallery');
-    if (!gallery || gallery.classList.contains('expanded')) return;
+    const gallery = toggleButton.closest('.gallery');
+    if (!gallery) return;
 
     const post = gallery.closest('.post');
     if (post && window.markPostRead) window.markPostRead(post);
 
     e.stopPropagation();
-    expandGallery(gallery);
+    if (gallery.classList.contains('expanded')) {
+        collapseGallery(gallery);
+    } else {
+        expandGallery(gallery);
+    }
 }, true);
 
-// Gallery collapse: click the "Show less" bar to collapse
-document.addEventListener('click', (e) => {
-    const collapse = e.target.closest('.gallery-collapse');
-    if (!collapse) return;
-
-    const gallery = collapse.closest('.gallery');
-    if (!gallery || !gallery.classList.contains('expanded')) return;
-
-    e.stopPropagation();
-    collapseGallery(gallery);
-}, true);
+function setGalleryExpandedState(gallery, expanded) {
+    const toggleButton = gallery.querySelector('.gallery-toggle-btn');
+    if (toggleButton) toggleButton.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+}
 
 // Smooth expand: measure real height, animate max-height, then set to none
 function expandGallery(gallery) {
@@ -510,10 +507,7 @@ function expandGallery(gallery) {
     gallery.style.maxHeight = fullHeight + 'px';
 
     gallery.classList.add('expanded');
-
-    // Hide the fade overlay (collapse bar is shown via CSS .expanded)
-    const fade = gallery.querySelector('.gallery-fade');
-    if (fade) fade.hidden = true;
+    setGalleryExpandedState(gallery, true);
 
     // After transition, remove max-height so resized images aren't clipped
     const onEnd = () => {
@@ -527,7 +521,7 @@ function expandGallery(gallery) {
     // Keep the gallery top at the same viewport position
     const topAfter = gallery.getBoundingClientRect().top;
     if (Math.abs(topAfter - topBefore) > 2) {
-        window.scrollBy(0, topAfter - topBefore);
+        window.scrollBy({ top: topAfter - topBefore, behavior: 'smooth' });
     }
 
     // Init resizers on newly-visible images
@@ -553,7 +547,14 @@ function getReadCollapsedGalleryHeight(gallery) {
 
 function getTargetCollapsedGalleryHeightStyle(gallery) {
     const post = gallery.closest('.post');
-    if (post && post.classList.contains('post-read')) {
+    const postId = post?.dataset?.postId;
+    const isReadLike = Boolean(
+        post && (
+            post.classList.contains('post-read') ||
+            (postId && _interactedPostIds.has(postId))
+        )
+    );
+    if (isReadLike) {
         return getReadCollapsedGalleryHeight(gallery) + 'px';
     }
     return '';
@@ -567,7 +568,77 @@ function getCollapsedGalleryHeightForScroll(gallery, targetStyleValue) {
     return getDefaultCollapsedGalleryHeight(gallery);
 }
 
-// Smooth collapse: animate max-height back to CSS default, then scroll into view
+function parseTransitionTimeToMs(value) {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) return 0;
+    if (trimmed.endsWith('ms')) return parseFloat(trimmed) || 0;
+    if (trimmed.endsWith('s')) return (parseFloat(trimmed) || 0) * 1000;
+    return parseFloat(trimmed) || 0;
+}
+
+function getMaxHeightTransitionDurationMs(element) {
+    const styles = getComputedStyle(element);
+    const props = styles.transitionProperty.split(',').map(s => s.trim());
+    const durations = styles.transitionDuration.split(',').map(parseTransitionTimeToMs);
+    if (!props.length || !durations.length) return 0;
+
+    const maxHeightIndex = props.findIndex(prop => prop === 'max-height' || prop === 'all');
+    if (maxHeightIndex >= 0) {
+        return durations[maxHeightIndex] ?? durations[durations.length - 1] ?? 0;
+    }
+    return durations[0] ?? 0;
+}
+
+function getVisibleHeaderOffset() {
+    const header = document.querySelector('.header');
+    if (!header || header.classList.contains('header-hidden')) return 0;
+    const rect = header.getBoundingClientRect();
+    return rect.bottom > 0 ? rect.bottom : 0;
+}
+
+function getCollapsedGalleryScrollTarget(gallery, collapsedTargetStyle) {
+    const anchorPadding = 22;
+    const anchorOffset = getVisibleHeaderOffset() + anchorPadding;
+    const galleryTop = window.scrollY + gallery.getBoundingClientRect().top;
+    const collapsedHeight = getCollapsedGalleryHeightForScroll(gallery, collapsedTargetStyle);
+    const galleryBottom = galleryTop + collapsedHeight;
+    return Math.max(0, galleryBottom - anchorOffset);
+}
+
+let collapseScrollAnimationId = null;
+
+function animateCollapseScroll(targetY, durationMs) {
+    if (collapseScrollAnimationId !== null) {
+        cancelAnimationFrame(collapseScrollAnimationId);
+        collapseScrollAnimationId = null;
+    }
+
+    const startY = window.scrollY;
+    const delta = targetY - startY;
+    if (Math.abs(delta) < 1) {
+        window.scrollTo(0, targetY);
+        return;
+    }
+
+    const duration = Math.max(120, durationMs || 0);
+    const start = performance.now();
+
+    const step = (now) => {
+        const t = Math.min(1, (now - start) / duration);
+        // Match CSS ease-out feel so viewport and collapse motion read as one action.
+        const eased = 1 - Math.pow(1 - t, 3);
+        window.scrollTo(0, Math.round(startY + delta * eased));
+        if (t < 1) {
+            collapseScrollAnimationId = requestAnimationFrame(step);
+        } else {
+            collapseScrollAnimationId = null;
+        }
+    };
+
+    collapseScrollAnimationId = requestAnimationFrame(step);
+}
+
+// Smooth collapse: animate max-height back to CSS default, then anchor collapsed gallery in view
 function collapseGallery(gallery) {
     // Get current expanded height
     const fullHeight = gallery.scrollHeight;
@@ -579,33 +650,24 @@ function collapseGallery(gallery) {
     const collapsedTarget = getTargetCollapsedGalleryHeightStyle(gallery);
     gallery.style.transition = '';
     gallery.style.maxHeight = collapsedTarget;
+    const collapseDurationMs = getMaxHeightTransitionDurationMs(gallery) || 400;
 
     gallery.classList.remove('expanded');
+    setGalleryExpandedState(gallery, false);
 
-    // Show the fade overlay (collapse bar hides via CSS removing .expanded)
-    const fade = gallery.querySelector('.gallery-fade');
-    if (fade) fade.hidden = false;
+    // Start scroll immediately with duration synced to the collapse transition.
+    const immediateTarget = getCollapsedGalleryScrollTarget(gallery, collapsedTarget);
+    animateCollapseScroll(immediateTarget, collapseDurationMs);
 
-    // Scroll to the top of the next post below this gallery so it's clear
-    // the user is on the following post, not lost in the middle of the page.
-    const postEl = gallery.closest('.post');
-    const nextPost = postEl ? postEl.nextElementSibling : null;
-    if (nextPost && nextPost.classList.contains('post')) {
-        const offset = 25; // px above the next post top
-        setTimeout(() => {
-            const nextPostTop = nextPost.getBoundingClientRect().top + window.scrollY;
-            window.scrollTo({ top: nextPostTop - offset, behavior: 'smooth' });
-        }, 50);
-    } else {
-        // Last post — fall back to showing bottom of collapsed gallery
-        const galleryTop = gallery.getBoundingClientRect().top + window.scrollY;
-        const collapsedHeight = getCollapsedGalleryHeightForScroll(gallery, collapsedTarget);
-        const peekAmount = 240;
-        const scrollTarget = galleryTop + collapsedHeight - peekAmount;
-        setTimeout(() => {
-            window.scrollTo({ top: scrollTarget, behavior: 'smooth' });
-        }, 50);
-    }
+    const onEnd = (event) => {
+        if (event.target !== gallery || event.propertyName !== 'max-height') return;
+        gallery.removeEventListener('transitionend', onEnd);
+        // Correct final position after animation in case layout shifted during collapse.
+        const finalTarget = getCollapsedGalleryScrollTarget(gallery, collapsedTarget);
+        window.scrollTo(0, finalTarget);
+    };
+
+    gallery.addEventListener('transitionend', onEnd);
 }
 
 // Allow ESC to collapse any expanded galleries

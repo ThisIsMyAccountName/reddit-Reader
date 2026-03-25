@@ -811,11 +811,12 @@ body {
 /* Gallery: vertical column clipped by max-height; expands on toggle */
 .post-media.gallery {
     padding: 0;
-    width: fit-content;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 8px;
+    --gallery-track-width: 50%;
     max-height: 650px;
     overflow: hidden;
     transition: max-height 0.4s ease;
@@ -831,7 +832,7 @@ body {
 }
 
 .gallery-item {
-    width: 100%;
+    width: var(--gallery-track-width);
     display: flex;
     justify-content: center;
     position: relative;
@@ -839,8 +840,8 @@ body {
 }
 
 .gallery-image {
-    width: 50%;
-    max-width: 50%;
+    width: 100%;
+    max-width: 100%;
     height: auto;
     object-fit: contain;
     background: var(--bg-tertiary);
@@ -848,25 +849,18 @@ body {
 }
 
 @media (max-width: 768px) {
-    .gallery-image {
-        width: 95%;
-        max-width: 95%;
-    }
-    .gallery-fade {
-        width: 95%;
-    }
-    .gallery-collapse {
-        width: 95%;
+    .post-media.gallery {
+        --gallery-track-width: 95%;
     }
 }
 
-/* Fade overlay at the bottom of collapsed gallery — clickable to expand */
-.gallery-fade {
+/* In collapsed state the control overlays the clipped bottom edge. */
+.gallery-toggle-wrap {
     position: absolute;
     bottom: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: 50%;
+    width: var(--gallery-track-width);
     height: 140px;
     background: linear-gradient(to bottom, transparent 0%, var(--bg-primary) 90%);
     z-index: 5;
@@ -874,73 +868,59 @@ body {
     align-items: flex-end;
     justify-content: center;
     padding-bottom: 14px;
-    cursor: pointer;
-    transition: height 0.2s ease;
+    pointer-events: none;
 }
 
-.gallery-fade:hover {
-    height: 160px;
-}
-
-.gallery-fade:hover .gallery-badge {
-    background: var(--accent);
-    color: var(--bg-primary);
-}
-
-/* Shared badge style for expand/collapse triggers */
-.gallery-badge {
+.gallery-toggle-btn {
     background: rgba(255, 255, 255, 0.12);
     color: var(--text-secondary);
     padding: 6px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 20px;
     font-size: 13px;
     font-weight: 500;
+    line-height: 1.2;
     letter-spacing: 0.3px;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
+    pointer-events: auto;
+    cursor: pointer;
+    min-height: 36px;
+    min-width: 140px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
     transition: background 0.2s, color 0.2s, transform 0.2s;
     user-select: none;
 }
 
-.gallery-badge:hover {
+.gallery-toggle-btn:hover {
     background: var(--accent);
     color: var(--bg-primary);
     transform: scale(1.05);
 }
 
-/* Collapse bar at the bottom of expanded gallery — sticky to viewport */
-.gallery-collapse {
+.gallery-label-collapse {
     display: none;
-    width: 50%;
-    margin: 0 auto;
-    height: 140px;
-    align-items: flex-end;
-    justify-content: center;
-    padding-bottom: 14px;
-    cursor: pointer;
-    flex-shrink: 0;
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
-    background: linear-gradient(to bottom, transparent 0%, var(--bg-primary) 90%);
-    transition: height 0.2s ease;
 }
 
-.gallery-collapse:hover {
-    height: 160px;
-}
-
-.gallery-collapse:hover .gallery-badge {
-    background: var(--accent);
-    color: var(--bg-primary);
-}
-
-.gallery.expanded .gallery-collapse {
-    display: flex;
-}
-
-.gallery-fade[hidden] {
+.gallery.expanded .gallery-label-expand {
     display: none;
+}
+
+.gallery.expanded .gallery-label-collapse {
+    display: inline;
+}
+
+/* In expanded state the control sits in flow at the bottom of content. */
+.gallery.expanded .gallery-toggle-wrap {
+    position: static;
+    left: auto;
+    transform: none;
+    height: auto;
+    width: var(--gallery-track-width);
+    padding: 12px 0 4px;
+    background: linear-gradient(to bottom, transparent 0%, var(--bg-primary) 75%);
+    pointer-events: auto;
 }
 
 .post-image {

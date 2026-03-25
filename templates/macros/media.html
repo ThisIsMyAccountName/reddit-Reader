@@ -33,11 +33,11 @@
     </div>
     {% endfor %}
     {% if p.gallery_urls|length > 1 %}
-    <div class="gallery-fade">
-        <span class="gallery-badge">▼ {{ p.gallery_urls|length - 1 }} more image{{ 's' if p.gallery_urls|length - 1 > 1 else '' }}</span>
-    </div>
-    <div class="gallery-collapse">
-        <span class="gallery-badge">▲ Show less</span>
+    <div class="gallery-toggle-wrap">
+        <button type="button" class="gallery-toggle-btn" aria-expanded="false">
+            <span class="gallery-label-expand">▼ {{ p.gallery_urls|length - 1 }} more image{{ 's' if p.gallery_urls|length - 1 > 1 else '' }}</span>
+            <span class="gallery-label-collapse">▲ Show less</span>
+        </button>
     </div>
     {% endif %}
 </div>
